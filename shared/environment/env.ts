@@ -84,6 +84,16 @@ export const env = createEnv({
     BLOB_READ_WRITE_TOKEN: requiredValue.optional(),
     BLOB_STORE_ID: requiredValue.optional(),
     GOOGLE_CONNECTOR_UID: requiredValue.default("google/open-instinct"),
+    // Optional self-hosted model server that speaks the OpenAI Chat
+    // Completions API, such as Ollama (http://localhost:11434/v1).
+    OPENAI_COMPATIBLE_API_KEY: requiredValue.optional(),
+    OPENAI_COMPATIBLE_BASE_URL: z.url().optional(),
+    OPENAI_COMPATIBLE_CONTEXT_TOKENS: z.coerce
+      .number()
+      .int()
+      .positive()
+      .default(64_000),
+    OPENAI_COMPATIBLE_MODEL: requiredValue.optional(),
     LINQ_CONNECTOR: requiredValue.optional(),
     LINK_CLIENT_ID: requiredValue.optional(),
     LINK_CLIENT_SECRET: requiredValue.optional(),

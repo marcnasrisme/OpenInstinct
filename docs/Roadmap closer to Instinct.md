@@ -50,6 +50,23 @@ After R1–R4 the fork has about 7 of 10, at low cost and with no new legal
 exposure. R5–R6 are the expensive, legally sensitive part (calling). R7–R8
 depend on outside vendors.
 
+## Decided: a throwaway Linux terminal (after R1)
+
+Instinct's "own computer" is a logged-in browser, saved credentials and
+memory, which the fork already has (Kernel profiles, the vault, Neon). The
+missing piece is a terminal and files. Decision (2026-11-03): turn on eve's
+built-in **sandbox** rather than renting an always-on server.
+
+- On Vercel it is a Vercel Sandbox: a small Linux machine that starts when a
+  conversation needs it, pauses when idle, and is deleted when the
+  conversation ends. Locally it uses Docker.
+- Files worth keeping are saved to the existing Vercel Blob store, so they
+  outlive the machine.
+- It never gets vault access, and anything it does that reaches other people
+  goes through the ADR-002 approval gates and the audit log.
+- A DigitalOcean droplet stays an option only if a task needs something
+  running all the time.
+
 ## Where this beats Instinct (keep these as differences)
 
 - Approvals are enforced in code, and the approval prompt shows the real

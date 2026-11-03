@@ -18,6 +18,7 @@ import {
 import { Button } from "@web/components/ui/button";
 import { api } from "@web/trpc/client";
 import type { RouterOutputs } from "@web/trpc/types";
+import type { ModelRole } from "@shared/models/catalog";
 
 type ModelCatalogItem = RouterOutputs["models"]["list"][number];
 
@@ -28,13 +29,22 @@ const priceFormatter = new Intl.NumberFormat("en-US", {
   currency: "USD",
 });
 
-export function ModelSelector({ modelId }: { readonly modelId: string }) {
+export function ModelSelector({
+  modelId,
+  modelRole: role,
+}: {
+  readonly modelId: string;
+  readonly modelRole: ModelRole;
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const catalog = api.models.list.useQuery(undefined, {
-    enabled: open,
-    staleTime: 5 * 60 * 1000,
-  });
+  const catalog = api.models.list.useQuery(
+    { role },
+    {
+      enabled: open,
+      staleTime: 5 * 60 * 1000,
+    }
+  );
   const selectModel = api.settings.selectModel.useMutation({
     onSuccess: () => {
       setOpen(false);
@@ -44,9 +54,9 @@ export function ModelSelector({ modelId }: { readonly modelId: string }) {
   const groupedModels = useMemo(() => {
     const groups = new Map<string, ModelCatalogItem[]>();
     for (const model of catalog.data ?? []) {
-      const providerModels = groups.get(model.ownedBy) ?? [];
+      const providerModels = groups.get(model.provider) ?? [];
       providerModels.push(model);
-      groups.set(model.ownedBy, providerModels);
+      groups.set(model.provider, providerModels);
     }
     return [...groups.entries()].toSorted(([left], [right]) =>
       left.localeCompare(right)
@@ -54,7 +64,7 @@ export function ModelSelector({ modelId }: { readonly modelId: string }) {
   }, [catalog.data]);
 
   const select = (selectedModelId: string) => {
-    selectModel.mutate({ modelId: selectedModelId });
+    selectModel.mutate({ modelId: selectedModelId, role });
   };
 
   const catalogError =
@@ -76,16 +86,22 @@ export function ModelSelector({ modelId }: { readonly modelId: string }) {
           />
         }
       >
-        <ModelSelectorLogo
-          provider={providerLogo(modelId.split("/", 1)[0] ?? modelId)}
-        />
+        {modelId.includes("/") ? (
+          <ModelSelectorLogo
+            provider={providerLogo(modelId.split("/", 1)[0] ?? modelId)}
+          />
+        ) : null}
         Choose
         <ChevronsUpDownIcon />
       </ModelSelectorTrigger>
       <ModelSelectorContent
         className="sm:max-w-xl"
         showCloseButton={false}
-        title="Choose a model"
+        title={
+          role === "browser"
+            ? "Choose the browser model"
+            : "Choose the assistant model"
+        }
       >
         <ModelSelectorInput placeholder="Search models…" />
         <ModelSelectorList className="max-h-[min(32rem,70vh)]">
@@ -103,13 +119,18 @@ export function ModelSelector({ modelId }: { readonly modelId: string }) {
                   onSelect={() => {
                     select(model.id);
                   }}
-                  value={`${model.name} ${model.id} ${model.ownedBy}`}
+                  value={`${model.name} ${model.id} ${model.provider}`}
                 >
-                  <ModelSelectorLogo provider={providerLogo(model.ownedBy)} />
+                  {model.logo ? (
+                    <ModelSelectorLogo provider={providerLogo(model.logo)} />
+                  ) : null}
                   <span className="min-w-0 flex-1 text-left">
                     <span className="block truncate">{model.name}</span>
-                    <span className="block truncate type-caption text-muted-foreground">
-                      {model.id}
+                    <span className="block type-caption text-muted-foreground">
+                      {model.retention}
+                      {model.zeroDataRetention
+                        ? " Zero data retention enforced."
+                        : ""}
                     </span>
                   </span>
                   {formatPricing(model) ? (

@@ -1,14 +1,20 @@
 import { gateway } from "ai";
+import { TRPCError } from "@trpc/server";
 import { revokeToken, startAuthorization } from "@vercel/connect";
 import { z } from "zod";
 import { listBrowserTraces } from "@db/services/browser-traces";
 import { saveChat } from "@db/services/chats";
 import { replaceUserProfile } from "@db/services/user-profile";
-import { selectGatewayModel } from "@db/services/settings";
+import { selectModelId } from "@db/services/settings";
 import { deleteVaultItem, saveVaultItem } from "@db/services/vault";
 import type { AccessScope } from "@shared/identity/access-scope";
 import { saveChatSchema } from "@shared/chat/schema";
 import { env } from "@shared/environment";
+import {
+  availableModels,
+  modelRoles,
+  type ModelRole,
+} from "@shared/models/catalog";
 import {
   googleWorkspaceSubject,
   googleWorkspaceTokenParams,
@@ -49,10 +55,23 @@ export const appRouter = createTRPCRouter({
   },
   settings: {
     selectModel: protectedProcedure
-      .input(z.object({ modelId: z.string().trim().min(1).max(300) }))
-      .mutation(({ ctx, input }) =>
-        selectGatewayModel(ctx.scope, input.modelId)
-      ),
+      .input(
+        z.object({
+          modelId: z.string().trim().min(1).max(300),
+          role: z.enum(modelRoles),
+        })
+      )
+      .mutation(async ({ ctx, input }) => {
+        if (
+          !availableModels(input.role).some(({ id }) => id === input.modelId)
+        ) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: `${input.modelId} is not an available ${input.role} model in the catalog.`,
+          });
+        }
+        await selectModelId(ctx.scope, input.role, input.modelId);
+      }),
   },
   userProfile: {
     update: protectedProcedure
@@ -83,7 +102,9 @@ export const appRouter = createTRPCRouter({
       .mutation(({ ctx, input }) => deleteVaultItem(ctx.scope, input.id)),
   },
   models: {
-    list: protectedProcedure.query(readModelCatalog),
+    list: protectedProcedure
+      .input(z.object({ role: z.enum(modelRoles) }))
+      .query(({ input }) => readModelCatalog(input.role)),
   },
 });
 
@@ -101,38 +122,40 @@ async function startGoogleWorkspaceAuthorization(
   return authorization.url;
 }
 
-async function readModelCatalog() {
-  const { models } = await gateway.getAvailableModels();
+// The catalog models for a role, with gateway prices when the gateway can
+// list them. Prices are optional: the catalog alone decides what is allowed.
+async function readModelCatalog(role: ModelRole) {
+  const prices = await gateway
+    .getAvailableModels()
+    .then(({ models }) => new Map(models.map((model) => [model.id, model])))
+    .catch(() => new Map<string, never>());
 
-  return z
-    .array(
-      z.object({
-        id: z.string(),
-        name: z.string(),
-        ownedBy: z.string(),
-        pricing: z
-          .object({
-            input: z.number().nonnegative().optional(),
-            output: z.number().nonnegative().optional(),
-          })
-          .optional(),
-      })
-    )
-    .parse(
-      models
-        .filter((model) => model.modelType === "language")
-        .map((model) => ({
-          id: model.id,
-          name: model.name,
-          ownedBy: model.specification.provider,
-          pricing: model.pricing
-            ? {
-                input: perMillion(model.pricing.input),
-                output: perMillion(model.pricing.output),
-              }
-            : undefined,
-        }))
-    );
+  return availableModels(role).map((model) => {
+    const listed =
+      model.route.kind === "gateway"
+        ? prices.get(model.route.model)
+        : undefined;
+    return {
+      id: model.id,
+      logo:
+        model.route.kind === "gateway"
+          ? model.route.model.split("/", 1)[0]
+          : undefined,
+      name: model.label,
+      pricing: listed?.pricing
+        ? {
+            input: perMillion(listed.pricing.input),
+            output: perMillion(listed.pricing.output),
+          }
+        : undefined,
+      provider: model.provider,
+      retention: model.retention.reviewed
+        ? `Retention reviewed ${model.retention.checkedOn}: ${model.retention.note}`
+        : `Retention not reviewed: ${model.retention.note}`,
+      zeroDataRetention:
+        model.route.kind === "gateway" && model.route.zeroDataRetention,
+    };
+  });
 }
 
 function perMillion(value: string) {

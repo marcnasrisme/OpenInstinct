@@ -6,10 +6,10 @@ import {
   withEvaluableDynamic,
 } from "@tests/helpers/dynamic";
 import type { isScheduledAgentRunLeaseActive } from "@db/services/scheduled-agent-run-leases";
-import type { getGatewayModel } from "@db/services/settings";
+import type { getModelId } from "@db/services/settings";
 
 const services = vi.hoisted(() => ({
-  getModel: vi.fn<typeof getGatewayModel>(),
+  getModel: vi.fn<typeof getModelId>(),
   isActive: vi.fn<typeof isScheduledAgentRunLeaseActive>(),
 }));
 
@@ -20,7 +20,7 @@ vi.mock("@db/services/scheduled-agent-run-leases", () => ({
   isScheduledAgentRunLeaseActive: services.isActive,
 }));
 vi.mock("@db/services/settings", () => ({
-  getGatewayModel: services.getModel,
+  getModelId: services.getModel,
 }));
 
 import agent from "@agent/agent";
@@ -31,7 +31,7 @@ const retryLeaseToken = "00000000-0000-4000-8000-000000000003";
 
 beforeEach(() => {
   vi.clearAllMocks();
-  services.getModel.mockResolvedValue("openai/gpt-5.6-sol-fast");
+  services.getModel.mockResolvedValue("openai/gpt-6.1-sol-fast");
 });
 
 describe("root agent model resolution", () => {
@@ -46,11 +46,11 @@ describe("root agent model resolution", () => {
       runId,
       retryLeaseToken
     );
-    expect(services.getModel).toHaveBeenCalledExactlyOnceWith({
-      userId: "user-1",
-      workspaceId: "workspace-1",
-    });
-    expect(model).toBe("openai/gpt-5.6-sol-fast");
+    expect(services.getModel).toHaveBeenCalledExactlyOnceWith(
+      { userId: "user-1", workspaceId: "workspace-1" },
+      "assistant"
+    );
+    expect(model).toEqual({ model: "openai/gpt-6.1-sol-fast" });
   });
 
   it("rejects a scheduled worker after its lease is replaced", async () => {
