@@ -9,6 +9,8 @@ import {
   sendGmail,
   updateGmail,
 } from "@agent/lib/google-workspace/gmail";
+import { recordToolIntent } from "@agent/lib/audit/events";
+import { gmailSendAuditSummary } from "@agent/lib/audit/summary";
 import { resolveModeValue } from "@agent/lib/mode";
 
 export const gmailSearch = defineTool({
@@ -78,6 +80,7 @@ export const gmailSend = defineTool({
     "Send a user-requested email from the authenticated user's Gmail account. The user approves the exact recipients and content before it is sent.",
   inputSchema: gmailSendSchema,
   async execute(input, ctx) {
+    await recordToolIntent(ctx, "gmail-send", gmailSendAuditSummary(input));
     const sent = await sendGmail(ctx, input);
     return {
       messageId: sent.id,

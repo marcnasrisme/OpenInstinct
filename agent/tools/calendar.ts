@@ -6,6 +6,8 @@ import {
   createCalendarEvent,
   listCalendarEvents,
 } from "@agent/lib/google-workspace/calendar";
+import { recordToolIntent } from "@agent/lib/audit/events";
+import { calendarEventAuditSummary } from "@agent/lib/audit/summary";
 import { resolveModeValue } from "@agent/lib/mode";
 
 export const calendarListEvents = defineTool({
@@ -58,6 +60,11 @@ export const calendarCreateEvent = defineTool({
     "Create a user-requested confirmed private Google Calendar event and send updates to attendees. The user approves events that have attendees before invitations are sent.",
   inputSchema: calendarEventSchema,
   async execute(input, ctx) {
+    await recordToolIntent(
+      ctx,
+      "calendar-create-event",
+      calendarEventAuditSummary(input)
+    );
     return {
       created: true,
       event: await createCalendarEvent(ctx, input),
