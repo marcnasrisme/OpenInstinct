@@ -126,6 +126,12 @@ verify themselves by messaging the connector's Linq number once.
 `LINQ_PHONE_NUMBER` is an optional E.164 override that adds a click-to-message
 shortcut in the workspace; delivery uses the line assigned to the connector.
 
+Set `OWNER_PHONE_NUMBERS` to the comma-separated E.164 numbers that may use the
+agent, such as `+12025550123`. Phone possession is the only sign-in factor, so
+other numbers get no sign-in code, cannot create an account, and are ignored
+when they text the Linq line. When it is unset, nobody can sign in outside
+local development.
+
 <details>
 <summary>Attach Linq to an existing Vercel project</summary>
 
