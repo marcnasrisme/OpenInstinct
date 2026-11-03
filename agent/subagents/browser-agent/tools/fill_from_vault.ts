@@ -2,6 +2,8 @@ import { defineTool } from "eve/tools";
 import { z } from "zod";
 import { requireOwnedBrowserSession } from "@agent/subagents/browser-agent/lib/owned-browser";
 import { requireWorkerScope } from "@agent/subagents/browser-agent/lib/access";
+import { recordToolIntent } from "@agent/lib/audit/events";
+import { vaultFillAuditSummary } from "@agent/lib/audit/summary";
 import { recordBrowserVaultFill } from "@db/services/browsers";
 import { readVaultItem } from "@db/services/vault";
 import { kernel } from "@agent/subagents/browser-agent/lib/kernel";
@@ -144,6 +146,11 @@ export default defineTool({
     // Record the fill before it happens, so browser output is scrubbed even
     // when the fill fails partway.
     await recordBrowserVaultFill(input.browserSessionId, item.id);
+    await recordToolIntent(
+      context,
+      "fill_from_vault",
+      vaultFillAuditSummary(input)
+    );
     const result = await fillWithKernelNativeAutofill({
       browserSessionId: input.browserSessionId,
       claims,

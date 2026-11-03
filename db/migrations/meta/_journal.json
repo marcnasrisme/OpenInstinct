@@ -113,6 +113,13 @@
       "when": 1793740655810,
       "tag": "0015_flawless_chamber",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1793741666325,
+      "tag": "0016_fixed_stingray",
+      "breakpoints": true
     }
   ]
 }

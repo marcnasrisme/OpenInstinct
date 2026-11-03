@@ -300,6 +300,22 @@ format; re-run it after the upgrade.
 
 </details>
 
+## Audit log
+
+Every tool call is recorded in the append-only `audit_events` table: the
+approval request, the answer, when the call started, and how it ended, with
+who made the request. Email sends, calendar invitations, and vault fills also
+write an `intent` row immediately before acting, and do not act if that write
+fails. A database trigger refuses `UPDATE`, `DELETE`, and `TRUNCATE`, and rows
+have no foreign key to the workspace, so nothing cascades away.
+
+Rows store a per-tool summary, never raw input: for an email, the recipients,
+subject, body length, and a SHA-256 of the body; for a vault fill, the item
+handle, page origin, and declared total. Tools without a summary record only
+their name. Rows are kept until you delete them with a deliberate migration.
+
+Server logs record tool names, outcomes, and usage, not message text.
+
 ## Local development
 
 Local development requires:
