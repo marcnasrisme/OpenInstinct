@@ -4,13 +4,20 @@ import { betterAuth } from "better-auth";
 import { APIError } from "better-auth/api";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { and, eq } from "drizzle-orm";
+import { z } from "zod";
 import { phoneNumber } from "better-auth/plugins/phone-number";
 import { account, db, session, user, verification } from "@db";
 import { betterAuthBaseURL } from "@shared/environment/origin";
-import { env, localPhoneAuthBypassEnabled } from "@shared/environment";
+import {
+  env,
+  isOwnerPhoneNumber,
+  localPhoneAuthBypassEnabled,
+} from "@shared/environment";
 import { getInstallationSecrets } from "@db/services/installation-secrets";
 import { LinqDeliveryError, linqOtpFailure, sendLinqText } from "./linq";
 import { isE164PhoneNumber } from "@shared/identity/phone-number";
+
+const phoneUserSchema = z.object({ phoneNumber: z.string() });
 
 let authPromise: ReturnType<typeof initializeAuth> | undefined;
 
@@ -69,6 +76,19 @@ async function initializeAuth() {
       },
     },
     databaseHooks: {
+      user: {
+        create: {
+          // Second line of defense behind sendOTP: the local bypass verifies
+          // any number without sending a code.
+          before: async (value) => {
+            const candidate = phoneUserSchema.safeParse(value);
+            return candidate.success &&
+              isOwnerPhoneNumber(candidate.data.phoneNumber)
+              ? { data: value }
+              : false;
+          },
+        },
+      },
       account: {
         create: {
           before: async (value) => {
@@ -107,9 +127,16 @@ async function initializeAuth() {
         expiresIn: 300,
         phoneNumberValidator: isE164PhoneNumber,
         requireVerification: true,
-        sendOTP: localPhoneAuthBypassEnabled
-          ? () => undefined
-          : ({ code, phoneNumber: to }) => sendPhoneCode({ code, to }),
+        sendOTP: async ({ code, phoneNumber: to }) => {
+          if (!isOwnerPhoneNumber(to)) {
+            throw new APIError("FORBIDDEN", {
+              code: "PHONE_NOT_ALLOWED",
+              message: "This phone number can't sign in to this assistant.",
+            });
+          }
+          if (localPhoneAuthBypassEnabled) return;
+          await sendPhoneCode({ code, to });
+        },
         signUpOnVerification: {
           getTempEmail: (phoneNumberValue) =>
             `phone-${createHash("sha256")

@@ -104,6 +104,20 @@ export const env = createEnv({
         "LINQ_PHONE_NUMBER must use E.164 format"
       )
       .optional(),
+    // Comma-separated E.164 numbers allowed to sign in and text the agent.
+    OWNER_PHONE_NUMBERS: requiredValue
+      .transform((value) =>
+        value
+          .split(",")
+          .map((phoneNumber) => phoneNumber.trim())
+          .filter((phoneNumber) => phoneNumber.length > 0)
+      )
+      .refine(
+        (phoneNumbers) =>
+          phoneNumbers.length > 0 && phoneNumbers.every(isE164PhoneNumber),
+        "OWNER_PHONE_NUMBERS must be comma-separated E.164 numbers"
+      )
+      .optional(),
     NODE_ENV: z
       .enum(["development", "production", "test"])
       .default("production"),
@@ -127,6 +141,14 @@ export const localPhoneAuthBypassEnabled =
     authHostname?.endsWith(".localhost") === true ||
     authHostname === "127.0.0.1" ||
     authHostname === "[::1]");
+
+// Phone possession is the only sign-in factor, so only listed numbers may
+// sign in or reach the agent. Unset admits nobody outside local development.
+export function isOwnerPhoneNumber(phoneNumber: string) {
+  return env.OWNER_PHONE_NUMBERS
+    ? env.OWNER_PHONE_NUMBERS.includes(phoneNumber)
+    : localPhoneAuthBypassEnabled;
+}
 
 function hasValue(value: string | undefined) {
   return value !== undefined && value.trim().length > 0;
