@@ -5,6 +5,8 @@ export async function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   if (
     pathname === "/sign-in" ||
+    // Invite links are opened before the friend has an account.
+    pathname.startsWith("/invite/") ||
     // The contact route verifies its signed URL; Linq downloads without cookies.
     pathname === "/contacts/openinstinct.vcf" ||
     pathname.startsWith("/api/auth/") ||

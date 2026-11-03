@@ -21,9 +21,12 @@ vi.mock("@shared/environment", async (importOriginal) => {
   return {
     ...original,
     env: { ...original.env, LINQ_CONNECTOR: "linq/test" },
-    isOwnerPhoneNumber: (phoneNumber: string) => phoneNumber === "+15550100011",
   };
 });
+vi.mock("@db/services/invites", () => ({
+  isAllowedPhoneNumber: async (phoneNumber: string) =>
+    phoneNumber === "+15550100011",
+}));
 vi.mock("@vercel/connect/eve", () => ({
   connectLinqCredentials: () => ({ apiKey: async () => "linq-test-api-key" }),
 }));
@@ -83,7 +86,7 @@ describe("Linq inbound authentication", () => {
     });
   });
 
-  it("drops messages from a verified user whose number is not an owner", async () => {
+  it("drops messages from a verified user who is neither an owner nor invited", async () => {
     capture.findOne.mockResolvedValue({
       id: "user-2",
       phoneNumberVerified: true,

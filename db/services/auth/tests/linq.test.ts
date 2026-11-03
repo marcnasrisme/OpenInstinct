@@ -1,8 +1,10 @@
 /* oxlint-disable vitest/require-mock-type-parameters -- The connector mock needs only the token operation exercised here. */
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { z } from "zod";
 import {
   LinqDeliveryError,
   linqOtpFailure,
+  listLinqPhoneNumbers,
   readLinqOnboardingPhoneNumber,
   sendLinqText,
 } from "@db/services/auth/linq";
@@ -41,6 +43,55 @@ describe("Linq delivery", () => {
       "Idempotency-Key": "otp-idempotency-key",
     });
     expect(init?.method).toBe("POST");
+  });
+
+  it("sends a friend's code from their own number only when one is given", async () => {
+    mocks.getToken.mockResolvedValue("test-token");
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(null, { status: 202 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await sendLinqText({
+      connector: "linq/open-instinct",
+      from: "+12025550199",
+      idempotencyKey: "otp-1",
+      message: "Your code is 123456.",
+      to: "+12025550123",
+    });
+    await sendLinqText({
+      connector: "linq/open-instinct",
+      idempotencyKey: "otp-2",
+      message: "Your code is 654321.",
+      to: "+12025550123",
+    });
+
+    const bodies = fetchMock.mock.calls.map(([, init]) =>
+      z
+        .object({ from: z.string().optional() })
+        .parse(JSON.parse(z.string().parse(init?.body)))
+    );
+    expect(bodies).toEqual([{ from: "+12025550199" }, {}]);
+  });
+
+  it("lists every number on the Linq account", async () => {
+    mocks.getToken.mockResolvedValue("test-token");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>().mockResolvedValue(
+        Response.json({
+          phone_numbers: [
+            { id: "1", phone_number: "+12025550100" },
+            { id: "2", phone_number: "+12025550101" },
+          ],
+        })
+      )
+    );
+
+    await expect(listLinqPhoneNumbers("linq/open-instinct")).resolves.toEqual([
+      "+12025550100",
+      "+12025550101",
+    ]);
   });
 
   it("retrieves the Linq number used for first-time onboarding", async () => {

@@ -12,6 +12,12 @@ export const requireRequestScope = cache(async (): Promise<AccessScope> => {
   return accessScopeForUser(`better-auth:${session.user.id}`);
 });
 
+export const requireRequestPhoneNumber = cache(async () => {
+  const session = await getAuthSession(await headers());
+  if (!session) throw new UnauthenticatedError();
+  return session.user.phoneNumber;
+});
+
 export class UnauthenticatedError extends Error {
   constructor() {
     super("Sign in to continue.");

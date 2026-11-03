@@ -22,18 +22,27 @@ import { catalogModel } from "@shared/models/catalog";
 import { linkConfigured } from "@db/services/auth/link";
 import { env } from "@shared/environment";
 import { googleWorkspaceTokenParams } from "@shared/google-workspace/connection";
-import { requireRequestScope } from "@web/auth/request-scope";
+import {
+  requireRequestPhoneNumber,
+  requireRequestScope,
+} from "@web/auth/request-scope";
+import { claimedInviteLine, isOwnerUser } from "@db/services/invites";
+import { FriendInvites } from "./_components/friend-invites";
 import { GoogleWorkspaceAction } from "./_components/google-workspace-action";
 import { ModelSelector } from "./_components/model-selector";
 
 export default async function Page({ searchParams }: PageProps<"/">) {
   const google = (await searchParams).google;
   const scope = await requireRequestScope();
-  const [googleWorkspace, assistantModel, browserModel] = await Promise.all([
-    readGoogleWorkspaceConnection(scope.userId),
-    getModelId(scope, "assistant"),
-    getModelId(scope, "browser"),
-  ]);
+  const phoneNumber = await requireRequestPhoneNumber();
+  const [googleWorkspace, assistantModel, browserModel, owner, inviteLine] =
+    await Promise.all([
+      readGoogleWorkspaceConnection(scope.userId),
+      getModelId(scope, "assistant"),
+      getModelId(scope, "browser"),
+      isOwnerUser(scope.userId),
+      claimedInviteLine(phoneNumber),
+    ]);
   const browserReady = true;
   const imageStorageReady = Boolean(
     env.BLOB_STORE_ID ?? env.BLOB_READ_WRITE_TOKEN
@@ -56,8 +65,13 @@ export default async function Page({ searchParams }: PageProps<"/">) {
       <ChannelsSection
         browserReady={browserReady}
         linqConfigured={env.LINQ_CONNECTOR !== undefined}
-        linqPhoneNumber={env.LINQ_PHONE_NUMBER}
+        linqPhoneNumber={inviteLine ?? env.LINQ_PHONE_NUMBER}
       />
+      {owner ? (
+        <WorkspaceSection headingId="friends-heading" title="Friends">
+          <FriendInvites />
+        </WorkspaceSection>
+      ) : null}
       <ConnectionsSection
         connection={googleWorkspace}
         linkEnabled={linkConfigured()}

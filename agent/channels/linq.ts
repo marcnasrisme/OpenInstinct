@@ -15,7 +15,8 @@ import { resolveLinqReplyTarget } from "@agent/lib/reply-targets";
 import { getAuth } from "@db/services/auth";
 import { accessScopeForUser } from "@shared/identity/access-scope";
 import { normalizeAuthPhoneNumber } from "@shared/identity/phone-number";
-import { env, isOwnerPhoneNumber } from "@shared/environment";
+import { env } from "@shared/environment";
+import { isAllowedPhoneNumber } from "@db/services/invites";
 import {
   linqCredentials,
   sendNativeLinqMessage,
@@ -211,13 +212,13 @@ export default linqChannel({
       ? normalizeAuthPhoneNumber(authorUserName.data)
       : undefined;
     const verifiedUserId =
-      phoneNumber && isOwnerPhoneNumber(phoneNumber)
+      phoneNumber && (await isAllowedPhoneNumber(phoneNumber))
         ? await findVerifiedAuthUserIdByPhoneNumber(phoneNumber)
         : undefined;
     if (!verifiedUserId || !phoneNumber) {
       // Phone possession is the only sign-in factor, so a handle that is not
-      // an owner linked to a verified user is unauthenticated: never mint a
-      // principal or a workspace for it.
+      // an owner or invited friend linked to a verified user is
+      // unauthenticated: never mint a principal or a workspace for it.
       console.warn("[linq] ignoring message from a non-owner handle", {
         threadId: context.thread.id,
       });
