@@ -24,7 +24,16 @@ describe("contact download proxy", () => {
     expect(auth.getSession).not.toHaveBeenCalled();
   });
 
+  it("lets a friend open an invite link before they have an account", async () => {
+    const response = await proxy(
+      new NextRequest("https://example.com/invite/opaque-token")
+    );
+    expect(response.headers.get("x-middleware-next")).toBe("1");
+    expect(auth.getSession).not.toHaveBeenCalled();
+  });
+
   it.each([
+    "/invite",
     "/contacts/private.vcf",
     "/contacts/openinstinct.vcf/other",
     "/vault",

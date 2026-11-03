@@ -8,11 +8,8 @@ import { z } from "zod";
 import { phoneNumber } from "better-auth/plugins/phone-number";
 import { account, db, session, user, verification } from "@db";
 import { betterAuthBaseURL } from "@shared/environment/origin";
-import {
-  env,
-  isOwnerPhoneNumber,
-  localPhoneAuthBypassEnabled,
-} from "@shared/environment";
+import { env, localPhoneAuthBypassEnabled } from "@shared/environment";
+import { claimedInviteLine, isAllowedPhoneNumber } from "@db/services/invites";
 import { getInstallationSecrets } from "@db/services/installation-secrets";
 import { LinqDeliveryError, linqOtpFailure, sendLinqText } from "./linq";
 import { isE164PhoneNumber } from "@shared/identity/phone-number";
@@ -83,7 +80,7 @@ async function initializeAuth() {
           before: async (value) => {
             const candidate = phoneUserSchema.safeParse(value);
             return candidate.success &&
-              isOwnerPhoneNumber(candidate.data.phoneNumber)
+              (await isAllowedPhoneNumber(candidate.data.phoneNumber))
               ? { data: value }
               : false;
           },
@@ -128,14 +125,15 @@ async function initializeAuth() {
         phoneNumberValidator: isE164PhoneNumber,
         requireVerification: true,
         sendOTP: async ({ code, phoneNumber: to }) => {
-          if (!isOwnerPhoneNumber(to)) {
+          if (!(await isAllowedPhoneNumber(to))) {
             throw new APIError("FORBIDDEN", {
               code: "PHONE_NOT_ALLOWED",
               message: "This phone number can't sign in to this assistant.",
             });
           }
           if (localPhoneAuthBypassEnabled) return;
-          await sendPhoneCode({ code, to });
+          // A friend gets the code from the number they were given.
+          await sendPhoneCode({ code, from: await claimedInviteLine(to), to });
         },
         signUpOnVerification: {
           getTempEmail: (phoneNumberValue) =>
@@ -155,9 +153,11 @@ async function initializeAuth() {
 
 export async function sendPhoneCode({
   code,
+  from,
   to,
 }: {
   readonly code: string;
+  readonly from?: string;
   readonly to: string;
 }) {
   if (!env.LINQ_CONNECTOR) {
@@ -171,6 +171,7 @@ export async function sendPhoneCode({
   try {
     await sendLinqText({
       connector: env.LINQ_CONNECTOR,
+      from,
       idempotencyKey: `auth-otp-${createHash("sha256")
         .update(`${to}\u0000${code}`)
         .digest("hex")}`,

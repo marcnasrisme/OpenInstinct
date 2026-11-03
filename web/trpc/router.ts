@@ -3,7 +3,15 @@ import { TRPCError } from "@trpc/server";
 import { revokeToken, startAuthorization } from "@vercel/connect";
 import { z } from "zod";
 import { listBrowserTraces } from "@db/services/browser-traces";
+import { listLinqPhoneNumbers } from "@db/services/auth/linq";
 import { saveChat } from "@db/services/chats";
+import {
+  assignedInviteLines,
+  createInvite,
+  isOwnerUser,
+  listInvites,
+  revokeInvite,
+} from "@db/services/invites";
 import { replaceUserProfile } from "@db/services/user-profile";
 import { selectModelId } from "@db/services/settings";
 import { deleteVaultItem, saveVaultItem } from "@db/services/vault";
@@ -101,6 +109,44 @@ export const appRouter = createTRPCRouter({
       .input(z.object({ id: z.string().min(1) }))
       .mutation(({ ctx, input }) => deleteVaultItem(ctx.scope, input.id)),
   },
+  invites: {
+    create: protectedProcedure
+      .input(z.object({ label: z.string().trim().min(1).max(80) }))
+      .mutation(async ({ ctx, input }) => {
+        await requireOwner(ctx.scope);
+        const linePhoneNumber = await freeInviteLine();
+        const { inviteId, token } = await createInvite({
+          label: input.label,
+          linePhoneNumber,
+          ownerUserId: ctx.scope.userId,
+        });
+        return {
+          inviteId,
+          linePhoneNumber,
+          url: new URL(`/invite/${token}`, ctx.origin).toString(),
+        };
+      }),
+    list: protectedProcedure.query(async ({ ctx }) => {
+      await requireOwner(ctx.scope);
+      return (await listInvites(ctx.scope.userId)).map((invite) => ({
+        claimedAt: invite.claimedAt?.toISOString() ?? null,
+        expiresAt: invite.expiresAt.toISOString(),
+        id: invite.id,
+        label: invite.label,
+        linePhoneNumber: invite.linePhoneNumber,
+        phoneNumber: invite.phoneNumber,
+        status: invite.status,
+      }));
+    }),
+    revoke: protectedProcedure
+      .input(z.object({ inviteId: z.uuid() }))
+      .mutation(async ({ ctx, input }) => {
+        await requireOwner(ctx.scope);
+        if (!(await revokeInvite(ctx.scope.userId, input.inviteId))) {
+          throw new TRPCError({ code: "NOT_FOUND" });
+        }
+      }),
+  },
   models: {
     list: protectedProcedure
       .input(z.object({ role: z.enum(modelRoles) }))
@@ -109,6 +155,38 @@ export const appRouter = createTRPCRouter({
 });
 
 export type AppRouter = typeof appRouter;
+
+async function requireOwner(scope: AccessScope) {
+  if (!(await isOwnerUser(scope.userId))) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "Only the owner can manage invites.",
+    });
+  }
+}
+
+// One Linq number per friend. The owner keeps LINQ_PHONE_NUMBER, or the
+// account's first number when it is unset.
+async function freeInviteLine() {
+  if (!env.LINQ_CONNECTOR) {
+    throw new TRPCError({
+      code: "PRECONDITION_FAILED",
+      message: "Connect Linq before inviting friends.",
+    });
+  }
+  const lines = await listLinqPhoneNumbers(env.LINQ_CONNECTOR);
+  const ownerLine = env.LINQ_PHONE_NUMBER ?? lines[0];
+  const assigned = await assignedInviteLines();
+  const free = lines.find((line) => line !== ownerLine && !assigned.has(line));
+  if (!free) {
+    throw new TRPCError({
+      code: "PRECONDITION_FAILED",
+      message:
+        "Every Linq number is in use. Add another number to your Linq account to invite someone else.",
+    });
+  }
+  return free;
+}
 
 async function startGoogleWorkspaceAuthorization(
   scope: AccessScope,

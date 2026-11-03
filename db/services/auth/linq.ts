@@ -5,6 +5,13 @@ import { isE164PhoneNumber } from "@shared/identity/phone-number";
 const LINQ_AVAILABLE_NUMBER_URL =
   "https://api.linqapp.com/api/partner/v3/available_number";
 const LINQ_MESSAGES_URL = "https://api.linqapp.com/api/partner/v3/messages";
+const LINQ_PHONE_NUMBERS_URL =
+  "https://api.linqapp.com/api/partner/v3/phone_numbers";
+const linqPhoneNumbersSchema = z.object({
+  phone_numbers: z.array(
+    z.object({ phone_number: z.string().refine(isE164PhoneNumber) })
+  ),
+});
 const linqAvailableNumberSchema = z.object({
   phone_number: z.string().refine(isE164PhoneNumber),
 });
@@ -120,13 +127,35 @@ export async function readLinqOnboardingPhoneNumber(connector: string) {
   }
 }
 
+// Every number on the Linq account; invites hand them out one per friend.
+export async function listLinqPhoneNumbers(connector: string) {
+  const token = await getToken(connector, {
+    subject: { type: "app" },
+  });
+  const response = await fetch(LINQ_PHONE_NUMBERS_URL, {
+    headers: { Authorization: `Bearer ${token}` },
+    signal: AbortSignal.timeout(5000),
+  });
+  if (!response.ok) {
+    throw new Error(
+      `Linq could not list phone numbers (HTTP ${String(response.status)}).`
+    );
+  }
+  const body: unknown = await response.json();
+  return linqPhoneNumbersSchema
+    .parse(body)
+    .phone_numbers.map(({ phone_number }) => phone_number);
+}
+
 export async function sendLinqText({
   connector,
+  from,
   idempotencyKey,
   message,
   to,
 }: {
   readonly connector: string;
+  readonly from?: string;
   readonly idempotencyKey: string;
   readonly message: string;
   readonly to: string;
@@ -135,7 +164,9 @@ export async function sendLinqText({
     subject: { type: "app" },
   });
   const response = await fetch(LINQ_MESSAGES_URL, {
+    // Without `from`, Linq picks an eligible number on the account.
     body: JSON.stringify({
+      from,
       message: { parts: [{ type: "text", value: message }] },
       to: [to],
     }),

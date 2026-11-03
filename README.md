@@ -306,6 +306,31 @@ format; re-run it after the upgrade.
 
 </details>
 
+## Inviting friends
+
+An owner (a number in `OWNER_PHONE_NUMBERS`) can invite friends from the
+workspace's **Friends** section. Each invite is a one-time link, valid for 7
+days, for one phone number. Each friend gets their own Linq number to text
+and their own private workspace, memory, and vault.
+
+1. Add one Linq number per friend to your Linq account. Linq has no API to
+   buy numbers; it prices numbers per line on request. You keep
+   `LINQ_PHONE_NUMBER`, or the account's first number when it is unset.
+2. In **Friends**, enter the friend's name and create a link. The link is
+   shown once; only its SHA-256 is stored.
+3. The friend opens the link, enters their phone number, and signs in with
+   the code that arrives from their own Linq number. Their workspace then
+   shows the number to text.
+
+Revoking an invite frees its number and ends that friend's access at their
+next sign-in or text. A friend's workspace is chosen by their own phone
+number, never by the Linq number they text. You run the server, so you can
+technically reach their data, and the invite page says so.
+
+Google's Gmail permission is restricted: while your Google OAuth app is in
+Testing mode, add each friend as a test user, and their Google access
+expires every seven days.
+
 ## Models
 
 The agent uses only models listed in `shared/models/catalog.ts`. Each entry

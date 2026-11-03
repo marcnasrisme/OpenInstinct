@@ -2,6 +2,7 @@ export * from "./audit";
 export * from "./auth";
 export * from "./browser";
 export * from "./chats";
+export * from "./invites";
 export * from "./schedules";
 export * from "./sessions";
 export * from "./vault";
