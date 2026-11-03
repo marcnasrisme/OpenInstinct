@@ -65,9 +65,18 @@ describe("Turbo configuration", () => {
       ?.split("### Linq iMessage setup", 1)[0];
 
     expect(deployButton?.searchParams.get("repository-url")).toBe(
-      "https://github.com/Merit-Systems/OpenInstinct"
+      "https://github.com/marcnasrisme/OpenInstinct"
     );
-    expect(deployButton?.searchParams.has("env")).toBe(false);
+    // The only value a deployer types: the owner's phone number, without
+    // which nobody can sign in.
+    expect(deployButton?.searchParams.get("env")).toBe("OWNER_PHONE_NUMBERS");
+    expect(deployButton?.searchParams.get("envDescription")).toContain(
+      "Your phone number"
+    );
+    expect(deployButton?.searchParams.get("envLink")).toBe(
+      "https://github.com/marcnasrisme/OpenInstinct#inviting-friends"
+    );
+    expect(readme).toContain("## Inviting friends");
     expect(deployButton?.searchParams.has("products")).toBe(false);
     expect(
       JSON.parse(deployButton?.searchParams.get("stores") ?? "null")
