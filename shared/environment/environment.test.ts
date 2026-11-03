@@ -41,6 +41,33 @@ describe("environment", () => {
     expect(env.LINQ_PHONE_NUMBER).toBeUndefined();
   });
 
+  it("admits only the listed owner phone numbers", async () => {
+    vi.stubEnv("OWNER_PHONE_NUMBERS", " +12025550123, +447700900123 ");
+
+    const { env, isOwnerPhoneNumber } = await import("@shared/environment");
+
+    expect(env.OWNER_PHONE_NUMBERS).toEqual(["+12025550123", "+447700900123"]);
+    expect(isOwnerPhoneNumber("+12025550123")).toBe(true);
+    expect(isOwnerPhoneNumber("+447700900123")).toBe(true);
+    expect(isOwnerPhoneNumber("+12025550199")).toBe(false);
+  });
+
+  it("admits nobody when no owner is configured outside local development", async () => {
+    vi.stubEnv("OWNER_PHONE_NUMBERS", "");
+
+    const { isOwnerPhoneNumber } = await import("@shared/environment");
+
+    expect(isOwnerPhoneNumber("+12025550123")).toBe(false);
+  });
+
+  it("rejects an owner list that is not E.164", async () => {
+    vi.stubEnv("OWNER_PHONE_NUMBERS", "+12025550123, 202-555-0124");
+
+    await expect(import("@shared/environment")).rejects.toThrow(
+      "Invalid environment variables"
+    );
+  });
+
   it("provides stable auth and encryption defaults in local development", async () => {
     vi.stubEnv("BETTER_AUTH_SECRET", "");
     vi.stubEnv("BETTER_AUTH_URL", "");

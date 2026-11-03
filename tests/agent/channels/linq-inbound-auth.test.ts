@@ -21,6 +21,7 @@ vi.mock("@shared/environment", async (importOriginal) => {
   return {
     ...original,
     env: { ...original.env, LINQ_CONNECTOR: "linq/test" },
+    isOwnerPhoneNumber: (phoneNumber: string) => phoneNumber === "+15550100011",
   };
 });
 vi.mock("@vercel/connect/eve", () => ({
@@ -80,6 +81,18 @@ describe("Linq inbound authentication", () => {
       model: "user",
       where: [{ field: "phoneNumber", value: "+15550100011" }],
     });
+  });
+
+  it("drops messages from a verified user whose number is not an owner", async () => {
+    capture.findOne.mockResolvedValue({
+      id: "user-2",
+      phoneNumberVerified: true,
+    });
+
+    await expect(
+      onMessage(threadContext(), linqMessage("+15550100022"))
+    ).resolves.toBeNull();
+    expect(capture.findOne).not.toHaveBeenCalled();
   });
 
   it("drops messages from handles whose user has not verified the phone", async () => {

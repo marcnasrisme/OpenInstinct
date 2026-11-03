@@ -20,7 +20,7 @@ import {
   extractImageArtifactMarkdownReferences,
   stripImageArtifactMarkdownReferences,
 } from "../lib/linq-image-artifact/markdown";
-import { env } from "@shared/environment";
+import { env, isOwnerPhoneNumber } from "@shared/environment";
 import {
   linqCredentials,
   sendNativeLinqMessage,
@@ -346,14 +346,15 @@ export default linqChannel({
     const phoneNumber = authorUserName.success
       ? normalizeAuthPhoneNumber(authorUserName.data)
       : undefined;
-    const verifiedUserId = phoneNumber
-      ? await findVerifiedAuthUserIdByPhoneNumber(phoneNumber)
-      : undefined;
+    const verifiedUserId =
+      phoneNumber && isOwnerPhoneNumber(phoneNumber)
+        ? await findVerifiedAuthUserIdByPhoneNumber(phoneNumber)
+        : undefined;
     if (!verifiedUserId || !phoneNumber) {
       // Phone possession is the only sign-in factor, so a handle that is not
-      // linked to a verified user is unauthenticated: never mint a principal
-      // or a workspace for it.
-      console.warn("[linq] ignoring message from an unlinked handle", {
+      // an owner linked to a verified user is unauthenticated: never mint a
+      // principal or a workspace for it.
+      console.warn("[linq] ignoring message from a non-owner handle", {
         threadId: context.thread.id,
       });
       return null;
