@@ -29,6 +29,7 @@ describe("database services", () => {
     await applySchemaAdoptionMigration(client);
     await applyNativeTypesMigration(client);
     await applyChatChannelMigration(client);
+    await applyBrowserVaultFillMigration(client);
 
     const pgliteDatabase = drizzle(client, { schema });
     // SAFETY: PGlite implements the query-builder surface exercised by these services despite using a different Drizzle driver.
@@ -214,6 +215,27 @@ describe("database services", () => {
     expect(await browsers.deleteBrowserSession(bob, "browser-alice")).toBe(
       false
     );
+
+    await browsers.recordBrowserVaultFill("browser-alice", "card-alice");
+    await browsers.recordBrowserVaultFill("browser-alice", "card-alice");
+    expect(
+      await browsers.listBrowserVaultFills(alice, "browser-alice")
+    ).toEqual(["card-alice"]);
+    expect(await browsers.listBrowserVaultFills(bob, "browser-alice")).toEqual(
+      []
+    );
+    await browsers.createBrowserSession(alice, {
+      createdAt: new Date().toISOString(),
+      sessionId: "browser-closed",
+      workerSessionId: "worker-alice",
+    });
+    await browsers.recordBrowserVaultFill("browser-closed", "card-alice");
+    expect(await browsers.deleteBrowserSession(alice, "browser-closed")).toBe(
+      true
+    );
+    expect(
+      await browsers.listBrowserVaultFills(alice, "browser-closed")
+    ).toEqual([]);
 
     const { serializeLoginVaultPayload } = await import("@shared/vault/schema");
     await browserTraces.beginBrowserTrace(alice, {
@@ -418,6 +440,18 @@ async function applyNativeTypesMigration(database: PGlite) {
 async function applyChatChannelMigration(database: PGlite) {
   const migration = await readFile(
     new URL("../migrations/0011_faulty_unicorn.sql", import.meta.url),
+    "utf8"
+  );
+  /* oxlint-disable eslint/no-await-in-loop -- SQL migration statements must execute in file order. */
+  for (const statement of migration.split("--> statement-breakpoint")) {
+    if (statement.trim()) await database.exec(statement);
+  }
+  /* oxlint-enable eslint/no-await-in-loop */
+}
+
+async function applyBrowserVaultFillMigration(database: PGlite) {
+  const migration = await readFile(
+    new URL("../migrations/0015_flawless_chamber.sql", import.meta.url),
     "utf8"
   );
   /* oxlint-disable eslint/no-await-in-loop -- SQL migration statements must execute in file order. */

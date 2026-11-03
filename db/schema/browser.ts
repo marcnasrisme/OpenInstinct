@@ -49,6 +49,34 @@ export const browserSessions = pgTable(
   ]
 );
 
+// Which vault items were filled into a browser, never their values. Browser
+// tools use it to scrub those values from page output sent to the model.
+export const browserVaultFills = pgTable(
+  "browser_vault_fills",
+  {
+    browserSessionId: text("browser_session_id").notNull(),
+    vaultItemId: text("vault_item_id").notNull(),
+    filledAt: timestamp("filled_at", {
+      mode: "date",
+      precision: 3,
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    primaryKey({
+      name: "browser_vault_fills_pkey",
+      columns: [table.browserSessionId, table.vaultItemId],
+    }),
+    foreignKey({
+      name: "browser_vault_fills_session_fkey",
+      columns: [table.browserSessionId],
+      foreignColumns: [browserSessions.sessionId],
+    }).onDelete("cascade"),
+  ]
+);
+
 export const browserTraces = pgTable(
   "browser_traces",
   {

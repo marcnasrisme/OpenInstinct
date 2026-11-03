@@ -1,6 +1,6 @@
 import { and, desc, eq, sql } from "drizzle-orm";
 import type { AccessScope } from "@shared/identity/access-scope";
-import { browserSessions, db } from "@db";
+import { browserSessions, browserVaultFills, db } from "@db";
 
 interface BrowserSessionRecord {
   readonly createdAt: string;
@@ -77,6 +77,39 @@ export async function readBrowserSession(
 function serializeBrowserSession<T extends { createdAt: Date }>(record: T) {
   const { createdAt, ...session } = record;
   return { ...session, createdAt: createdAt.toISOString() };
+}
+
+// Records only which vault item was filled, never its values, so browser
+// tools can scrub those values from page output. Callers have already
+// checked that the workspace owns the browser.
+export async function recordBrowserVaultFill(
+  browserSessionId: string,
+  vaultItemId: string
+) {
+  await db
+    .insert(browserVaultFills)
+    .values({ browserSessionId, vaultItemId })
+    .onConflictDoNothing();
+}
+
+export async function listBrowserVaultFills(
+  scope: AccessScope,
+  browserSessionId: string
+) {
+  const rows = await db
+    .select({ vaultItemId: browserVaultFills.vaultItemId })
+    .from(browserVaultFills)
+    .innerJoin(
+      browserSessions,
+      eq(browserSessions.sessionId, browserVaultFills.browserSessionId)
+    )
+    .where(
+      and(
+        eq(browserSessions.workspaceId, scope.workspaceId),
+        eq(browserVaultFills.browserSessionId, browserSessionId)
+      )
+    );
+  return rows.map(({ vaultItemId }) => vaultItemId);
 }
 
 export async function deleteBrowserSession(

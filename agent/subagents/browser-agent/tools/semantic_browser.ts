@@ -10,8 +10,11 @@ import {
   toolOutput,
   toolOutputPart,
 } from "eve/tools";
+import type { ApprovalPolicy } from "eve/tools/approval";
 import { requireWorkerScope } from "@agent/subagents/browser-agent/lib/access";
+import { vaultRedactionFor } from "@agent/subagents/browser-agent/lib/autofill/redaction";
 import { requireOwnedBrowserSession } from "@agent/subagents/browser-agent/lib/owned-browser";
+import { listBrowserVaultFills } from "@db/services/browsers";
 import { executeBrowserLoopTool, modelText } from "../lib/semantic-loop";
 
 /* oxlint-disable anti-slop/no-known-value-widening, anti-slop/no-runtime-typeof, anti-slop/no-unknown-parameters, anti-slop/no-unsafe-dictionary-type -- Browser Loop supplies runtime-selected JSON Schemas and JSON inputs, so this adapter must preserve its dynamic vendor boundary. */
@@ -34,6 +37,7 @@ export default defineDynamic(() => {
     allSpecs.map((spec) => [
       spec.name,
       defineTool({
+        approval: denyScriptsAfterVaultFill,
         description: toolDescription(spec),
         execute: executeSemanticTool,
         inputSchema: withSessionId(spec),
@@ -58,13 +62,41 @@ async function executeSemanticTool(
   const scope = await requireWorkerScope(context);
   const { sessionId, toolInput } = splitSessionInput(input);
   await requireOwnedBrowserSession(scope, sessionId);
-  return executeBrowserLoopTool(
+  const output = await executeBrowserLoopTool(
     sessionId,
     spec,
     boundedToolInput(spec, toolInput),
     context.abortSignal
   );
+  // Snapshots report filled field values, so scrub vault secrets before the
+  // result reaches the model or the session log.
+  const redact = await vaultRedactionFor(scope, sessionId);
+  if (!redact) return output;
+  // oxlint-disable-next-line typescript/no-unsafe-assignment -- the scrubbed JSON is the same Browser Loop result with only string contents changed
+  const redacted: LoopToolExecutionResult = JSON.parse(
+    redact(JSON.stringify(output))
+  );
+  return redacted;
 }
+
+// A page script can read a filled field and send it anywhere, which output
+// scrubbing cannot stop, so scripts end once a vault item is in the page.
+const denyScriptsAfterVaultFill: ApprovalPolicy = async (context) => {
+  if (context.toolName !== "playwright_execute") return "not-applicable";
+  const sessionId = context.toolInput?.session_id;
+  if (typeof sessionId !== "string") return "not-applicable";
+  const fills = await listBrowserVaultFills(
+    await requireWorkerScope(context),
+    sessionId
+  );
+  return fills.length > 0
+    ? {
+        type: "denied",
+        reason:
+          "playwright_execute is unavailable in a browser that has a vault fill. Use browser_snapshot, browser_find, and browser_act instead.",
+      }
+    : "not-applicable";
+};
 
 function boundedToolInput(spec: LoopToolSpec, input: Record<string, unknown>) {
   if (spec.name === "browser_snapshot" && input.ref === "root") {

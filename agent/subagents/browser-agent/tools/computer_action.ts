@@ -3,6 +3,7 @@ import type { ComputerBatchParams } from "@onkernel/sdk/resources/browsers/compu
 import { z } from "zod";
 import { kernel } from "@agent/subagents/browser-agent/lib/kernel";
 import { requireWorkerScope } from "@agent/subagents/browser-agent/lib/access";
+import { vaultRedactionFor } from "@agent/subagents/browser-agent/lib/autofill/redaction";
 import { requireOwnedBrowserSession } from "@agent/subagents/browser-agent/lib/owned-browser";
 import { withVaultScreenshotMask } from "@agent/subagents/browser-agent/lib/vault-screenshot-mask";
 
@@ -188,8 +189,15 @@ export default defineTool({
     /* oxlint-enable eslint/no-await-in-loop */
     await flushPendingActions();
 
+    // A copied field can reach the clipboard, so scrub vault secrets from it.
+    const redact = await vaultRedactionFor(scope, input.session_id);
+    const readData: unknown =
+      redact && data.length > 0
+        ? JSON.parse(redact(JSON.stringify(data)))
+        : data;
+
     return outputSchema.parse({
-      data: data.length > 0 ? data : undefined,
+      data: data.length > 0 ? readData : undefined,
       message: `Executed ${String(input.actions.length)} computer action${input.actions.length === 1 ? "" : "s"}.`,
       mimeType: screenshotBase64 ? "image/png" : undefined,
       screenshotBase64,
