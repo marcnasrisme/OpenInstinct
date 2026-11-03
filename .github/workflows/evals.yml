@@ -1,0 +1,66 @@
+name: Safety evals
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 7 * * *"
+  pull_request:
+    paths:
+      - "agent/**"
+      - "evals/**"
+
+concurrency:
+  group: evals-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  safety:
+    name: Safety evals
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      AI_GATEWAY_API_KEY: ${{ secrets.AI_GATEWAY_API_KEY }}
+    steps:
+      # Evals call real models, so they run only where the gateway secret exists.
+      - name: Require model credentials
+        id: credentials
+        run: |
+          if [ -z "$AI_GATEWAY_API_KEY" ]; then
+            echo "::warning::AI_GATEWAY_API_KEY is not set; skipping safety evals."
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check out repository
+        if: steps.credentials.outputs.available == 'true'
+        uses: actions/checkout@v6
+
+      - name: Set up pnpm
+        if: steps.credentials.outputs.available == 'true'
+        uses: pnpm/action-setup@v6
+
+      - name: Set up Node.js
+        if: steps.credentials.outputs.available == 'true'
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      - name: Install dependencies
+        if: steps.credentials.outputs.available == 'true'
+        run: pnpm install --frozen-lockfile
+
+      - name: Run safety evals
+        if: steps.credentials.outputs.available == 'true'
+        run: pnpm eval:ci --tag safety
+
+      - name: Upload JUnit report
+        if: always() && steps.credentials.outputs.available == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: safety-evals-junit
+          path: .eve/junit.xml
+          if-no-files-found: ignore
