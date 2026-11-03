@@ -2,6 +2,7 @@ import { defineTool } from "eve/tools";
 import { z } from "zod";
 import { requireOwnedBrowserSession } from "@agent/subagents/browser-agent/lib/owned-browser";
 import { requireWorkerScope } from "@agent/subagents/browser-agent/lib/access";
+import { recordBrowserVaultFill } from "@db/services/browsers";
 import { readVaultItem } from "@db/services/vault";
 import { kernel } from "@agent/subagents/browser-agent/lib/kernel";
 import {
@@ -15,6 +16,23 @@ import { materializeAutofillClaims } from "../lib/autofill/service";
 const inputSchema = z.object({
   browserSessionId: z.string().trim().min(1).max(500),
   candidateId: z.string().trim().min(1).max(500),
+  declaredTotal: z
+    .object({
+      amountMinor: z.number().int().nonnegative(),
+      currency: z
+        .string()
+        .regex(/^[a-z]{3}$/u)
+        .describe("Lowercase ISO 4217 code, such as usd."),
+    })
+    .optional()
+    .describe(
+      "Required for a payment card: the checkout total, including tax and shipping, in minor units."
+    ),
+  expectedOrigin: z
+    .url()
+    .describe(
+      "Exact origin of the page being filled, such as https://shop.example. The fill is refused when the page differs."
+    ),
 });
 
 const outputSchema = z.object({
@@ -25,8 +43,38 @@ const outputSchema = z.object({
 });
 
 export default defineTool({
+  // A saved card is the purchase choke point: once it is in the page, the
+  // purchase is one ordinary click. The user approves the merchant and total
+  // first, and execute refuses any other origin.
+  approval: {
+    async request(context) {
+      const input = context.toolInput;
+      if (!input) return "user-approval";
+      const item = await readVaultItem(
+        await requireWorkerScope(context),
+        input.candidateId
+      );
+      if (item?.kind !== "payment") return "not-applicable";
+      if (!input.declaredTotal) {
+        return {
+          type: "denied",
+          reason:
+            "A payment card fill requires declaredTotal with the checkout total.",
+        };
+      }
+      return "user-approval";
+    },
+    prompt: ({ input }) =>
+      [
+        "Fill a saved card for this purchase?",
+        `Merchant: ${new URL(input.expectedOrigin).origin}`,
+        ...(input.declaredTotal
+          ? [`Total: ${formatMinorAmount(input.declaredTotal)}`]
+          : []),
+      ].join("\n"),
+  },
   description:
-    "Fill a login, card, contact, traveler, or address form with an opaque handle returned by list_vault. Focus one control in the intended form first. Never supply vault fields, selectors, origins, or secret values.",
+    "Fill a login, card, contact, traveler, or address form with an opaque handle returned by list_vault. Focus one control in the intended form first. Supply the page's exact expectedOrigin, and for a payment card the checkout declaredTotal; the user approves card fills. Never supply vault fields, selectors, or secret values.",
   inputSchema,
   outputSchema,
   async execute(input, context) {
@@ -62,6 +110,12 @@ export default defineTool({
       browserSessionId: input.browserSessionId,
       signal: context.abortSignal,
     });
+    const expectedOrigin = new URL(input.expectedOrigin).origin;
+    if (origin !== expectedOrigin) {
+      throw new Error(
+        `The page is on ${origin}, not the expected ${expectedOrigin}. Nothing was filled.`
+      );
+    }
     const surfaceKind =
       item.kind === "payment"
         ? "payment-card"
@@ -87,6 +141,9 @@ export default defineTool({
       },
       vaultAutofillProvider
     );
+    // Record the fill before it happens, so browser output is scrubbed even
+    // when the fill fails partway.
+    await recordBrowserVaultFill(input.browserSessionId, item.id);
     const result = await fillWithKernelNativeAutofill({
       browserSessionId: input.browserSessionId,
       claims,
@@ -103,3 +160,18 @@ export default defineTool({
     };
   },
 });
+
+function formatMinorAmount({
+  amountMinor,
+  currency,
+}: {
+  readonly amountMinor: number;
+  readonly currency: string;
+}) {
+  const format = new Intl.NumberFormat("en-US", {
+    currency: currency.toUpperCase(),
+    style: "currency",
+  });
+  const fractionDigits = format.resolvedOptions().maximumFractionDigits ?? 2;
+  return format.format(amountMinor / 10 ** fractionDigits);
+}

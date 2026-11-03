@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as WorkerAccess from "@agent/subagents/browser-agent/lib/access";
+import * as Redaction from "@agent/subagents/browser-agent/lib/autofill/redaction";
 import * as OwnedBrowser from "@agent/subagents/browser-agent/lib/owned-browser";
 import { kernel } from "@agent/subagents/browser-agent/lib/kernel";
 import { toolContextFor } from "@tests/helpers/tool-context";
@@ -13,6 +14,7 @@ const mocks = {
     "requireOwnedBrowserSession"
   ),
   requireWorkerScope: vi.spyOn(WorkerAccess, "requireWorkerScope"),
+  vaultRedactionFor: vi.spyOn(Redaction, "vaultRedactionFor"),
   writeClipboard: vi.spyOn(kernel.browsers.computer, "writeClipboard"),
 };
 
@@ -30,6 +32,7 @@ beforeEach(() => {
   mocks.batch.mockResolvedValue();
   mocks.readClipboard.mockResolvedValue({ text: "clipboard value" });
   mocks.writeClipboard.mockResolvedValue();
+  mocks.vaultRedactionFor.mockResolvedValue(undefined);
 });
 
 describe("worker browser tools", () => {
@@ -70,5 +73,19 @@ describe("worker browser tools", () => {
       mocks.batch.mock.invocationCallOrder[1] ?? Infinity
     );
     expect(result).toMatchObject({ data: [{ text: "clipboard value" }] });
+  });
+
+  it("scrubs vault secrets from clipboard reads after a vault fill", async () => {
+    mocks.readClipboard.mockResolvedValue({ text: "4242424242424242" });
+    mocks.vaultRedactionFor.mockResolvedValue((text) =>
+      text.replaceAll("4242424242424242", "[vault value]")
+    );
+
+    const result = await computerAction.execute(
+      { actions: [{ type: "read_clipboard" }], session_id: "browser-1" },
+      toolContextFor()
+    );
+
+    expect(result).toMatchObject({ data: [{ text: "[vault value]" }] });
   });
 });

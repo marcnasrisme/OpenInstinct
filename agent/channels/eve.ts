@@ -58,6 +58,10 @@ const authenticate: Parameters<typeof routeAuth>[1] = [
       },
       principalId: scope.userId,
       principalType: "user" as const,
+      // Local development only: lets agent evals stub tools such as Gmail so
+      // injection cases run without a real mailbox. eve strips the grant
+      // before it saves or forwards the identity.
+      allowToolStubs: true,
     };
   },
   () => {
