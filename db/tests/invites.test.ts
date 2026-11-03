@@ -46,7 +46,9 @@ async function invitesService() {
   return import("@db/services/invites");
 }
 
-describe("friend invites", () => {
+// Each case starts PGlite and applies three migrations, which takes several
+// seconds on slower CI runners.
+describe("friend invites", { timeout: 30_000 }, () => {
   it("lets one phone claim a link once and gives it the invite's number", async () => {
     const invites = await invitesService();
     const { token } = await invites.createInvite({
