@@ -30,6 +30,7 @@ describe("database services", () => {
     await applyNativeTypesMigration(client);
     await applyChatChannelMigration(client);
     await applyBrowserVaultFillMigration(client);
+    await applyModelSettingsMigration(client);
 
     const pgliteDatabase = drizzle(client, { schema });
     // SAFETY: PGlite implements the query-builder surface exercised by these services despite using a different Drizzle driver.
@@ -359,9 +360,18 @@ describe("database services", () => {
       "ciphertext-bob"
     );
 
-    await settings.selectGatewayModel(alice, "openai/test");
-    expect(await settings.getGatewayModel(alice)).toBe("openai/test");
-    expect(await settings.getGatewayModel(bob)).toBe("openai/gpt-6.1-sol-fast");
+    await settings.selectModelId(alice, "assistant", "openai/test");
+    await settings.selectModelId(alice, "browser", "openai-compatible");
+    expect(await settings.getModelId(alice, "assistant")).toBe("openai/test");
+    expect(await settings.getModelId(alice, "browser")).toBe(
+      "openai-compatible"
+    );
+    expect(await settings.getModelId(bob, "assistant")).toBe(
+      "openai/gpt-6.1-sol-fast"
+    );
+    expect(await settings.getModelId(bob, "browser")).toBe(
+      "meta/muse-spark-1.3"
+    );
   }, 15_000);
 });
 
@@ -452,6 +462,18 @@ async function applyChatChannelMigration(database: PGlite) {
 async function applyBrowserVaultFillMigration(database: PGlite) {
   const migration = await readFile(
     new URL("../migrations/0015_flawless_chamber.sql", import.meta.url),
+    "utf8"
+  );
+  /* oxlint-disable eslint/no-await-in-loop -- SQL migration statements must execute in file order. */
+  for (const statement of migration.split("--> statement-breakpoint")) {
+    if (statement.trim()) await database.exec(statement);
+  }
+  /* oxlint-enable eslint/no-await-in-loop */
+}
+
+async function applyModelSettingsMigration(database: PGlite) {
+  const migration = await readFile(
+    new URL("../migrations/0017_burly_silver_centurion.sql", import.meta.url),
     "utf8"
   );
   /* oxlint-disable eslint/no-await-in-loop -- SQL migration statements must execute in file order. */

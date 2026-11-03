@@ -1,5 +1,6 @@
 import type * as Eve from "eve";
 import type * as EveTools from "eve/tools";
+import type { getModelId as GetModelId } from "@db/services/settings";
 import { describe, expect, it, vi } from "vitest";
 import {
   dynamicContextFor,
@@ -13,6 +14,14 @@ vi.mock("eve", async (importOriginal) =>
 vi.mock("eve/tools", async (importOriginal) =>
   withEvaluableDynamic(await importOriginal<typeof EveTools>())
 );
+// The browser worker reads the workspace's model choice; this matrix checks
+// capabilities, not models, so the workspace keeps the catalog default.
+vi.mock("@db/services/settings", async () => {
+  const { defaultModelIds } = await import("@shared/models/catalog");
+  const getModelId: typeof GetModelId = async (_scope, role) =>
+    defaultModelIds[role];
+  return { getModelId };
+});
 
 import personalInfoMemory from "@agent/memory/personal_info";
 import workstreamMemory from "@agent/memory/workstreams";

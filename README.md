@@ -300,6 +300,30 @@ format; re-run it after the upgrade.
 
 </details>
 
+## Models
+
+The agent uses only models listed in `shared/models/catalog.ts`. Each entry
+names its provider and what that provider keeps, and the workspace picks one
+model for the assistant and one for the browser agent, which reads whole web
+pages. A model outside the catalog fails the turn instead of quietly
+switching to another one.
+
+To allow a model, add an entry:
+
+- **Vercel AI Gateway:** use the gateway model ID, such as
+  `anthropic/claude-opus-5.5`. Set `zeroDataRetention: true` to route only
+  through providers with a zero data retention agreement with the gateway;
+  requests fail when none is available.
+- **Your own server:** the `openai-compatible` entry uses any server that
+  speaks the OpenAI Chat Completions API: Ollama, LM Studio, llama.cpp, vLLM,
+  OpenRouter, and others. Set `OPENAI_COMPATIBLE_BASE_URL` and
+  `OPENAI_COMPATIBLE_MODEL` (plus `OPENAI_COMPATIBLE_API_KEY` if the server
+  needs one, and `OPENAI_COMPATIBLE_CONTEXT_TOKENS` to the context length it
+  allocates). A deployment cannot reach a server on your own computer.
+
+Record the provider's retention terms with a source link and the date you
+checked them; the catalog test fails once a review is 180 days old.
+
 ## Audit log
 
 Every tool call is recorded in the append-only `audit_events` table: the

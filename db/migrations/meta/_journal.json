@@ -120,6 +120,13 @@
       "when": 1793741666325,
       "tag": "0016_fixed_stingray",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1793742548126,
+      "tag": "0017_burly_silver_centurion",
+      "breakpoints": true
     }
   ]
 }
