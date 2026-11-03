@@ -1,4 +1,5 @@
 import { defineDynamic, defineTool } from "eve/tools";
+import { always } from "eve/tools/approval";
 import { z } from "zod";
 import {
   GMAIL_UPDATE_ACTIONS,
@@ -49,9 +50,32 @@ export const gmailUpdate = defineTool({
   },
 });
 
+const bodyPreviewCharacters = 600;
+
 export const gmailSend = defineTool({
+  // The prompt is rendered from the validated input, so the user approves the
+  // exact recipients and content even when the request came from injected text.
+  approval: {
+    request: always(),
+    prompt: ({ input }) => {
+      const preview =
+        input.body.length > bodyPreviewCharacters
+          ? `${input.body.slice(0, bodyPreviewCharacters)}… (${String(input.body.length)} characters in total)`
+          : input.body;
+      return [
+        "Send this email?",
+        `To: ${input.to.join(", ")}`,
+        ...(input.cc.length ? [`Cc: ${input.cc.join(", ")}`] : []),
+        ...(input.bcc.length ? [`Bcc: ${input.bcc.join(", ")}`] : []),
+        // A line break in the subject must not fake another header line.
+        `Subject: ${input.subject.replace(/\s+/gu, " ")}`,
+        "",
+        preview,
+      ].join("\n");
+    },
+  },
   description:
-    "Send a user-requested email from the authenticated user's Gmail account.",
+    "Send a user-requested email from the authenticated user's Gmail account. The user approves the exact recipients and content before it is sent.",
   inputSchema: gmailSendSchema,
   async execute(input, ctx) {
     const sent = await sendGmail(ctx, input);

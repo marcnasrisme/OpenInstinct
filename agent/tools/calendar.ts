@@ -37,8 +37,25 @@ export const calendarCheckAvailability = defineTool({
 });
 
 export const calendarCreateEvent = defineTool({
+  // Attendees receive Google invitations, so only an event with attendees
+  // reaches other people and needs the user's approval.
+  approval: {
+    request: ({ toolInput }) =>
+      toolInput?.attendees.length === 0 ? "not-applicable" : "user-approval",
+    prompt: ({ input }) =>
+      [
+        "Create this event and email the invitations?",
+        // Line breaks in free text must not fake another prompt line.
+        `Title: ${input.summary.replace(/\s+/gu, " ")}`,
+        `When: ${input.start} to ${input.end} (${input.timezone})`,
+        ...(input.location
+          ? [`Where: ${input.location.replace(/\s+/gu, " ")}`]
+          : []),
+        `Attendees: ${input.attendees.join(", ")}`,
+      ].join("\n"),
+  },
   description:
-    "Create a user-requested confirmed private Google Calendar event and send updates to attendees.",
+    "Create a user-requested confirmed private Google Calendar event and send updates to attendees. The user approves events that have attendees before invitations are sent.",
   inputSchema: calendarEventSchema,
   async execute(input, ctx) {
     return {

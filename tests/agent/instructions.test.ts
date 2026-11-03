@@ -55,13 +55,16 @@ describe("agent instructions", () => {
     expect(selected?.content).toContain("approval");
   });
 
-  it("avoids tool approval loops and keeps Link purchases unavailable", async () => {
+  it("relies on approval gates without double confirmation and keeps Link purchases unavailable", async () => {
     const selected = await evaluateDynamic(
       executionSafety,
       dynamicContext("linq-message")
     );
-    expect(selected?.content).toContain(
+    expect(selected?.content).not.toContain(
       "Tools run without a separate Eve approval step"
+    );
+    expect(selected?.content).toContain(
+      "its approval prompt is the confirmation, so do not ask for the same approval in prose first"
     );
     expect(selected?.content).toContain(
       "Link purchases are temporarily unavailable"

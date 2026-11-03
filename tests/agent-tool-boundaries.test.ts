@@ -1,6 +1,9 @@
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import rootAgent from "@agent/agent";
+import fillFromVault from "@agent/subagents/browser-agent/tools/fill_from_vault";
+import { calendarCreateEvent } from "@agent/tools/calendar";
+import { gmailSend } from "@agent/tools/gmail";
 
 const rootTools = "agent/tools";
 const rootMemory = "agent/memory/profile.ts";
@@ -189,5 +192,58 @@ describe("root and worker capability boundaries", () => {
     );
     expect(workerConfig).toContain("tool: false");
     expect(workerConfig).not.toContain("outputSchema:");
+  });
+});
+
+// Every tool file must state whether it can affect other people and, if so,
+// that a code-level approval gates it. A new tool without an entry fails here.
+// See docs/ADR-002 Approval gates and audit log.md.
+const toolSafety = {
+  [`${rootTools}/ask_question.ts`]: "exempt: asks the current user",
+  [`${rootTools}/calendar.ts`]: "gated: calendar-create-event with attendees",
+  [`${rootTools}/contacts.ts`]: "exempt: read-only",
+  [`${rootTools}/gmail.ts`]:
+    "gated: gmail-send; gmail-update is reversible and stays in the mailbox",
+  [`${rootTools}/messaging.ts`]: "exempt: replies to the current user only",
+  [`${rootTools}/run_browser.ts`]:
+    "exempt: delegates to the worker, whose card fills are gated",
+  [`${rootTools}/schedules.ts`]: "exempt: affects only the user's own jobs",
+  [`${rootTools}/vault.ts`]: "exempt: sends the user a setup link",
+  [`${rootTools}/web_fetch.ts`]: "exempt: read-only",
+  [`${rootTools}/web_search.ts`]: "exempt: read-only",
+  [`${workerTools}/bash.ts`]: "exempt: disabled",
+  [`${workerTools}/capture_browser_image.ts`]: "exempt: read-only",
+  [`${workerTools}/computer_action.ts`]:
+    "exempt: browser input; risky clicks are a known gap in ADR-002",
+  [`${workerTools}/fill_from_link.ts`]: "exempt: Link approves each spend",
+  [`${workerTools}/fill_from_vault.ts`]: "gated: payment card fills",
+  [`${workerTools}/list_vault.ts`]: "exempt: returns safe metadata only",
+  [`${workerTools}/manage_browsers.ts`]: "exempt: owned browser lifecycle",
+  [`${workerTools}/personal_info.ts`]: "exempt: disabled",
+  [`${workerTools}/read_file.ts`]: "exempt: sandbox read",
+  [`${workerTools}/semantic_browser.ts`]:
+    "exempt: browser input; risky clicks are a known gap in ADR-002",
+  [`${workerTools}/web_fetch.ts`]: "exempt: read-only",
+  [`${workerTools}/web_search.ts`]: "exempt: read-only",
+  [`${workerTools}/write_file.ts`]: "exempt: sandbox write",
+};
+
+describe("tool safety inventory", () => {
+  it("classifies every tool file as gated or exempt with a reason", () => {
+    const files = [
+      ...toolFiles(rootTools).map((file) => `${rootTools}/${file}`),
+      ...toolFiles(workerTools).map((file) => `${workerTools}/${file}`),
+    ];
+
+    expect(Object.keys(toolSafety).toSorted()).toEqual(files.toSorted());
+    for (const decision of Object.values(toolSafety)) {
+      expect(decision).toMatch(/^(gated|exempt): \S/u);
+    }
+  });
+
+  it("puts a code-level approval on every gated tool", () => {
+    expect(gmailSend.approval).toBeDefined();
+    expect(calendarCreateEvent.approval).toBeDefined();
+    expect(fillFromVault.approval).toBeDefined();
   });
 });

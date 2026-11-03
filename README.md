@@ -196,8 +196,10 @@ Gotchas:
   account.
 - Google Contacts search uses a provider-side lazy cache, so a contact created
   moments ago may not appear immediately.
-- User-requested email and calendar operations run without an extra Eve tool
-  approval. Calendar events with attendees send Google invitations.
+- Sending email and creating calendar events with attendees always require
+  approval. The approval prompt shows the exact recipients and content, and
+  calendar events with attendees send Google invitations. Filling a saved
+  payment card also requires approval of the merchant and total.
 
 ## Link wallet
 
