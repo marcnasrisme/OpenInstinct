@@ -60,8 +60,16 @@ describe("environment", () => {
     expect(isOwnerPhoneNumber("+12025550123")).toBe(false);
   });
 
-  it("rejects an owner list that is not E.164", async () => {
-    vi.stubEnv("OWNER_PHONE_NUMBERS", "+12025550123, 202-555-0124");
+  it("accepts owner numbers written the way people type them", async () => {
+    vi.stubEnv("OWNER_PHONE_NUMBERS", "(202) 555-0123, +44 7700 900123");
+
+    const { env } = await import("@shared/environment");
+
+    expect(env.OWNER_PHONE_NUMBERS).toEqual(["+12025550123", "+447700900123"]);
+  });
+
+  it("rejects an owner list with something that is not a phone number", async () => {
+    vi.stubEnv("OWNER_PHONE_NUMBERS", "+12025550123, call me");
 
     await expect(import("@shared/environment")).rejects.toThrow(
       "Invalid environment variables"

@@ -10,7 +10,7 @@ You stay in control of your passwords, credit cards, and context.
 It's open source, self-hostable, and can use any model.
 Deploy to your own Vercel account and get rolling.
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FMerit-Systems%2FOpenInstinct&project-name=open-instinct&repository-name=open-instinct&connect=%5B%7B%22type%22%3A%22linq%22%2C%22env%22%3A%22LINQ_CONNECTOR%22%2C%22triggers%22%3Atrue%2C%22triggerPath%22%3A%22%2Feve%2Fv1%2Flinq%22%7D%5D&stores=%5B%7B%22type%22%3A%22integration%22%2C%22protocol%22%3A%22other%22%2C%22productSlug%22%3A%22kernel%22%2C%22integrationSlug%22%3A%22kernel%22%7D%2C%7B%22type%22%3A%22integration%22%2C%22protocol%22%3A%22storage%22%2C%22productSlug%22%3A%22neon%22%2C%22integrationSlug%22%3A%22neon%22%7D%2C%7B%22type%22%3A%22blob%22%2C%22access%22%3A%22private%22%7D%5D)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fmarcnasrisme%2FOpenInstinct&project-name=open-instinct&repository-name=open-instinct&connect=%5B%7B%22type%22%3A%22linq%22%2C%22env%22%3A%22LINQ_CONNECTOR%22%2C%22triggers%22%3Atrue%2C%22triggerPath%22%3A%22%2Feve%2Fv1%2Flinq%22%7D%5D&stores=%5B%7B%22type%22%3A%22integration%22%2C%22protocol%22%3A%22other%22%2C%22productSlug%22%3A%22kernel%22%2C%22integrationSlug%22%3A%22kernel%22%7D%2C%7B%22type%22%3A%22integration%22%2C%22protocol%22%3A%22storage%22%2C%22productSlug%22%3A%22neon%22%2C%22integrationSlug%22%3A%22neon%22%7D%2C%7B%22type%22%3A%22blob%22%2C%22access%22%3A%22private%22%7D%5D&env=OWNER_PHONE_NUMBERS&envDescription=Your%20phone%20number%2C%20such%20as%20%2B16175550123.%20Only%20this%20number%20%28and%20friends%20you%20invite%29%20can%20sign%20in.&envLink=https%3A%2F%2Fgithub.com%2Fmarcnasrisme%2FOpenInstinct%23inviting-friends)
 
 <img src=".github/demo.png" alt="OpenInstinct booking movie tickets over iMessage — it walks Fandango to checkout and reports the theater, showtime, seat, and total" width="640">
 
@@ -45,15 +45,22 @@ Purchases approved through Link are paid from your wallet.
 
 ## Deployment
 
-1. Click **Deploy with Vercel** above and select a **Pro** team. The guided flow
-   connects [Kernel](https://kernel.sh) for cloud browsers,
-   [Neon](https://neon.tech) for Postgres, private Vercel Blob storage, a managed
-   [Linq](https://linqapp.com) line for iMessage, and Vercel AI Gateway for models.
-2. Complete the [Linq phone verification](#linq-imessage-setup), then
-   open your deployed app and sign in with your phone number.
-3. Optionally set up a [Link wallet](#link-wallet) for purchases or
-   [Google Workspace](#google-workspace-connection) for Gmail, Calendar,
-   and Contacts.
+Three steps; the button does the rest.
+
+1. Click **Deploy with Vercel** above and choose a **Pro** team. When the form
+   asks for `OWNER_PHONE_NUMBERS`, enter your phone number, such as
+   `+16175550123`. The guided flow copies this repository to your GitHub
+   account and connects [Kernel](https://kernel.sh) for cloud browsers,
+   [Neon](https://neon.tech) for Postgres, private Vercel Blob storage, a
+   managed [Linq](https://linqapp.com) line for iMessage, and Vercel AI Gateway
+   for models.
+2. Complete the one-time [Linq phone verification](#linq-imessage-setup).
+3. Open your deployed app and sign in with your phone number. To bring
+   friends in, use [Inviting friends](#inviting-friends); they only open your
+   link, enter their number, and start texting.
+
+Optional: [Google Workspace](#google-workspace-connection) for Gmail,
+Calendar, and Contacts, and a [Link wallet](#link-wallet) for purchases.
 
 On first use, OpenInstinct creates independent Better Auth and vault-encryption
 keys in the private Blob store. The deploy flow supplies the application URL

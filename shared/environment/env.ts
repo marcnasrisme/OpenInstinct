@@ -1,6 +1,9 @@
 import { createEnv } from "@t3-oss/env-nextjs";
 import { z } from "zod";
-import { isE164PhoneNumber } from "@shared/identity/phone-number";
+import {
+  isE164PhoneNumber,
+  normalizeAuthPhoneNumber,
+} from "@shared/identity/phone-number";
 import { databaseUrlSchema } from "@shared/environment/database-url";
 
 export const betterAuthSecretSchema = z
@@ -105,17 +108,21 @@ export const env = createEnv({
       )
       .optional(),
     // Comma-separated E.164 numbers allowed to sign in and text the agent.
+    // Accepts the ways people write numbers, such as (617) 555-0123, the
+    // same as the sign-in form; numbers without a country code are US.
     OWNER_PHONE_NUMBERS: requiredValue
       .transform((value) =>
         value
           .split(",")
           .map((phoneNumber) => phoneNumber.trim())
           .filter((phoneNumber) => phoneNumber.length > 0)
+          .map((phoneNumber) => normalizeAuthPhoneNumber(phoneNumber))
       )
       .refine(
-        (phoneNumbers) =>
-          phoneNumbers.length > 0 && phoneNumbers.every(isE164PhoneNumber),
-        "OWNER_PHONE_NUMBERS must be comma-separated E.164 numbers"
+        (phoneNumbers): phoneNumbers is string[] =>
+          phoneNumbers.length > 0 &&
+          phoneNumbers.every((phoneNumber) => phoneNumber !== undefined),
+        "OWNER_PHONE_NUMBERS must be comma-separated phone numbers"
       )
       .optional(),
     NODE_ENV: z
