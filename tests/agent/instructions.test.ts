@@ -100,6 +100,19 @@ describe("agent instructions", () => {
     expect(selected?.content).toContain("natural text message");
   });
 
+  it("sends long links as preview cards instead of pasting them", async () => {
+    const selected = await evaluateDynamic(
+      messageStyle,
+      dynamicContext("linq-message")
+    );
+    expect(selected?.content).toContain(
+      "Never paste a long URL into message text"
+    );
+    expect(selected?.content).toContain(
+      'send that link as its own `send_message` call with `kind: "link"`'
+    );
+  });
+
   it("shares the exact browser contract with scheduled workers", async () => {
     const selections = await Promise.all(
       ["linq", "scheduled-worker"].map((authenticator) =>
