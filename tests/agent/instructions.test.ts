@@ -100,6 +100,27 @@ describe("agent instructions", () => {
     expect(selected?.content).toContain("natural text message");
   });
 
+  it("shows result-card comparisons as a one-line pick and a card gallery", async () => {
+    const selected = await evaluateDynamic(
+      roleInstructions,
+      dynamicContext("linq-message")
+    );
+    expect(selected?.content).toContain("show them instead of describing them");
+    expect(selected?.content).toContain(
+      "names the choice by its gallery number"
+    );
+    expect(selected?.content).not.toContain(
+      "Do not use a gallery for text-heavy comparisons"
+    );
+    const coordination = await evaluateDynamic(
+      workerCoordination,
+      dynamicContext("linq-message")
+    );
+    expect(coordination?.content).toContain(
+      "each captured as its own cropped result-card image, in ranked order"
+    );
+  });
+
   it("sends long links as preview cards instead of pasting them", async () => {
     const selected = await evaluateDynamic(
       messageStyle,
