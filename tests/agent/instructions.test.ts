@@ -106,9 +106,12 @@ describe("agent instructions", () => {
       dynamicContext("linq-message")
     );
     expect(selected?.content).toContain(
-      "show them as cards instead of describing them: draw the top two to four options with `make_image`"
+      "show them as cards instead of describing them: draw the top two or three options with `make_image` as one image"
     );
-    expect(selected?.content).toContain("names the choice by its card number");
+    expect(selected?.content).toContain("names the choice by its number");
+    expect(selected?.content).toContain(
+      "send the search link only if the user asks for it"
+    );
     expect(selected?.content).not.toContain(
       "Do not use a gallery for text-heavy comparisons"
     );
@@ -117,7 +120,7 @@ describe("agent instructions", () => {
       dynamicContext("linq-message")
     );
     expect(coordination?.content).toContain(
-      "ask for the top two to four options as text in ranked order"
+      "ask for the top two or three options as text in ranked order"
     );
     expect(coordination?.content).not.toContain("cropped result-card image");
   });

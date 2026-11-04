@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 import { sniffBrowserImageMediaType } from "@shared/browser/artifact";
 import { renderVisual } from "./render";
@@ -18,6 +19,17 @@ describe("renderVisual", () => {
     expect(width).toBe(780);
     expect(height).toBeGreaterThan(100);
     expect(height).toBeLessThan(400);
+  });
+
+  it("draws the card-design skill's example as one phone-sized image", async () => {
+    const skill = await readFile("agent/skills/card-design/SKILL.md", "utf8");
+    const example = /```html\n(?<html>[\s\S]*?)```/u.exec(skill)?.groups?.html;
+    if (!example) throw new Error("The skill has no HTML example.");
+
+    const { height, width } = pngSize(await renderVisual(example));
+
+    expect(width).toBe(780);
+    expect(height).toBeLessThan(1_100);
   });
 
   it("ignores scripts and styles", async () => {
