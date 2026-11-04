@@ -147,10 +147,10 @@ describe("root and worker capability boundaries", () => {
     );
     expect(workerInstructions).toContain("such as Google Flights");
     expect(workerInstructions).toContain(
-      "https://www.google.com/travel/flights?q="
+      "Reach a site's results by URL when you can."
     );
     expect(workerInstructions).toContain(
-      "instead of filling in the search form"
+      "instead of driving the search form one field at a time"
     );
     expect(workerInstructions).toContain(
       "Use `playwright_execute` as the primary browser execution surface"
