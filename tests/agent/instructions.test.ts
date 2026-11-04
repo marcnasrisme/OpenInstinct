@@ -100,15 +100,15 @@ describe("agent instructions", () => {
     expect(selected?.content).toContain("natural text message");
   });
 
-  it("shows result-card comparisons as a one-line pick and a card gallery", async () => {
+  it("draws comparisons as cards with make_image and a one-line pick", async () => {
     const selected = await evaluateDynamic(
       roleInstructions,
       dynamicContext("linq-message")
     );
-    expect(selected?.content).toContain("show them instead of describing them");
     expect(selected?.content).toContain(
-      "names the choice by its gallery number"
+      "show them as cards instead of describing them: draw the top two to four options with `make_image`"
     );
+    expect(selected?.content).toContain("names the choice by its card number");
     expect(selected?.content).not.toContain(
       "Do not use a gallery for text-heavy comparisons"
     );
@@ -117,8 +117,9 @@ describe("agent instructions", () => {
       dynamicContext("linq-message")
     );
     expect(coordination?.content).toContain(
-      "each captured as its own cropped result-card image, in ranked order"
+      "ask for the top two to four options as text in ranked order"
     );
+    expect(coordination?.content).not.toContain("cropped result-card image");
   });
 
   it("sends long links as preview cards instead of pasting them", async () => {

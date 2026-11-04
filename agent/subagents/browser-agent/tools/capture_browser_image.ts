@@ -1,22 +1,20 @@
-import { createHash, randomUUID } from "node:crypto";
-import { del, put } from "@vercel/blob";
+import { randomUUID } from "node:crypto";
 import { defineTool, toolOutput } from "eve/tools";
 import { z } from "zod";
 import { requireWorkerScope } from "@agent/subagents/browser-agent/lib/access";
 import { requireOwnedBrowserSession } from "@agent/subagents/browser-agent/lib/owned-browser";
 import { withVaultScreenshotMask } from "@agent/subagents/browser-agent/lib/vault-screenshot-mask";
-import {
-  finalizeBrowserImageArtifact,
-  reserveBrowserImageArtifact,
-  type BrowserImageArtifactReservation,
-} from "@db/services/browser-images";
+import { reserveBrowserImageArtifact } from "@db/services/browser-images";
 import {
   browserImageArtifactReferenceSchema,
   maximumBrowserImageBytes,
   sniffBrowserImageMediaType,
 } from "@shared/browser/artifact";
-import { env } from "@shared/environment";
 import { kernel } from "@agent/subagents/browser-agent/lib/kernel";
+import {
+  persistImageArtifact,
+  safeImageFilename,
+} from "@agent/lib/image-artifacts/persist";
 
 const regionSchema = z.object({
   height: z.number().int().positive(),
@@ -82,12 +80,12 @@ export default defineTool({
         "The captured resource is not a supported browser image."
       );
     }
-    const image = await persistCapturedImage(
+    const image = await persistImageArtifact(
       scope,
       reserved.reservation,
       {
         bytes: captured.bytes,
-        filename: safeBrowserImageFilename(input.label, mediaType),
+        filename: safeImageFilename(input.label, mediaType),
         sourceKind: captured.sourceKind,
       },
       context.abortSignal
@@ -259,75 +257,6 @@ await target.screenshot({ animations: "disabled", caret: "hide", path: ${JSON.st
         .catch(() => undefined);
     }
   });
-}
-
-function safeBrowserImageFilename(
-  label: string,
-  mediaType: NonNullable<ReturnType<typeof sniffBrowserImageMediaType>>
-) {
-  const extension = {
-    "image/gif": "gif",
-    "image/jpeg": "jpg",
-    "image/png": "png",
-    "image/webp": "webp",
-  }[mediaType];
-  const stem = label
-    .normalize("NFKD")
-    .replace(/(?:\.\.[/\\])+/gu, "")
-    .replace(/\p{Cc}+/gu, "")
-    .replace(/[^\p{L}\p{N}._() -]+/gu, "_")
-    .replace(/\s+/gu, " ")
-    .trim()
-    .replace(/^\.+|\.+$/gu, "")
-    .slice(0, 160);
-  return `${stem || "browser-image"}.${extension}`;
-}
-
-async function persistCapturedImage(
-  scope: Awaited<ReturnType<typeof requireWorkerScope>>,
-  reservation: BrowserImageArtifactReservation,
-  input: {
-    readonly bytes: Uint8Array;
-    readonly filename: string;
-    readonly sourceKind: string;
-  },
-  signal?: AbortSignal
-) {
-  const mediaType = sniffBrowserImageMediaType(input.bytes);
-  if (!mediaType)
-    throw new Error("The captured resource is not a supported browser image.");
-  const contentHash = createHash("sha256").update(input.bytes).digest("hex");
-  const storagePathname = `${reservation.storagePathname}/${contentHash}`;
-  if (!env.BLOB_STORE_ID && !env.BLOB_READ_WRITE_TOKEN) {
-    throw new Error("Browser image storage is not configured.");
-  }
-
-  await put(storagePathname, Buffer.from(input.bytes), {
-    access: "private",
-    abortSignal: signal,
-    addRandomSuffix: false,
-    allowOverwrite: true,
-    cacheControlMaxAge: 30 * 24 * 60 * 60,
-    contentType: mediaType,
-    maximumSizeInBytes: maximumBrowserImageBytes,
-  });
-  try {
-    const finalized = await finalizeBrowserImageArtifact(scope, reservation, {
-      byteSize: input.bytes.byteLength,
-      contentHash,
-      filename: input.filename,
-      mediaType,
-      sourceKind: input.sourceKind,
-      storagePathname,
-    });
-    if (finalized.storagePathname !== storagePathname) {
-      await del(storagePathname).catch(() => undefined);
-    }
-    return finalized.image;
-  } catch (error) {
-    await del(storagePathname).catch(() => undefined);
-    throw error;
-  }
 }
 
 async function readBoundedResponse(response: Response) {

@@ -6,8 +6,10 @@ import { scopeFromPrincipal } from "@agent/lib/principal-scope";
 
 export default defineAgent({
   build: {
-    // The browser-agent subagent's Browser Loop tools load this at runtime.
-    externalDependencies: ["@onkernel/browser-loop"],
+    // Loaded at runtime from node_modules: the browser-agent's Browser Loop
+    // tools, and the image renderer, whose WebAssembly and font files must
+    // ship as files rather than be bundled.
+    externalDependencies: ["@onkernel/browser-loop", "@vercel/og"],
   },
   defaultTools: false,
   // eve resolves this before every model call, so the lease is rechecked per step.

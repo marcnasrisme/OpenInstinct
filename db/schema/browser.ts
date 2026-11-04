@@ -181,7 +181,7 @@ export const browserImageArtifacts = pgTable(
     createdByUserId: text("created_by_user_id").notNull(),
     rootSessionId: text("root_session_id").notNull(),
     workerSessionId: text("worker_session_id").notNull(),
-    browserSessionId: text("browser_session_id").notNull(),
+    browserSessionId: text("browser_session_id"),
     status: text("status", { enum: ["pending", "ready"] }).notNull(),
     label: text("label").notNull(),
     filename: text("filename"),
@@ -216,7 +216,7 @@ export const browserImageArtifacts = pgTable(
     ),
     check(
       "browser_image_artifacts_source_kind_check",
-      sql`${table.sourceKind} IN ('element', 'full_page', 'image_resource', 'viewport')`
+      sql`${table.sourceKind} IN ('element', 'full_page', 'image_resource', 'rendered', 'viewport')`
     ),
     check(
       "browser_image_artifacts_ready_fields_check",
