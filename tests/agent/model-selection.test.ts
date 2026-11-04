@@ -33,6 +33,27 @@ async function selectionFor(
 }
 
 describe("model selection", () => {
+  it("gives the browser a smaller working context than the assistant", async () => {
+    const { selectedModel } = await selectionFor("meta/muse-spark-1.3");
+
+    await expect(selectedModel(scope, "browser")).resolves.toEqual({
+      model: "meta/muse-spark-1.3",
+      modelContextWindowTokens: 120_000,
+    });
+  });
+
+  it("keeps a self-hosted window within the working budget", async () => {
+    const { selectedModel } = await selectionFor("openai-compatible", {
+      OPENAI_COMPATIBLE_BASE_URL: "http://localhost:11434/v1",
+      OPENAI_COMPATIBLE_CONTEXT_TOKENS: "1000000",
+      OPENAI_COMPATIBLE_MODEL: "big-local-model",
+    });
+
+    await expect(selectedModel(scope, "browser")).resolves.toMatchObject({
+      modelContextWindowTokens: 120_000,
+    });
+  });
+
   it("routes a catalog gateway model by its ID", async () => {
     const { getModelId, selectedModel } = await selectionFor(
       "openai/gpt-6.1-sol-fast"
@@ -40,6 +61,7 @@ describe("model selection", () => {
 
     await expect(selectedModel(scope, "assistant")).resolves.toEqual({
       model: "openai/gpt-6.1-sol-fast",
+      modelContextWindowTokens: 200_000,
     });
     expect(getModelId).toHaveBeenCalledWith(scope, "assistant");
   });
