@@ -15,7 +15,7 @@ const outputSchema = z.object({
 });
 
 export const makeImage = defineTool({
-  description: `Draw one to four images from HTML and get back private image artifacts to send with send_message. Use it to show structured results as cards, such as flight or hotel options, products, receipts, schedules, or confirmations. Load the card-design skill before your first make_image call in a conversation; you can load it while the browser worker runs. Write one root element per image in the house style: class names on elements, inline styles only to adjust layout or color. Classes: ${Object.keys(visualStyleClasses).join(", ")}. Every element is a flex box; there are no tables, grids, or external fonts. Images must be embedded data:image URIs; remote image URLs are refused. Only put facts you already have in the card.`,
+  description: `Draw one to four images from HTML and get back private image artifacts to send with send_message. Use it to show structured results as cards, such as flight or hotel options, products, receipts, schedules, or confirmations. Messages shows the 780px canvas at about a third of its size and stacks separate images into a pile, so draw a comparison as one image the user can choose from at a glance, and say only what decides the choice. See the card-design skill for worked examples. Write one root element per image in the house style: class names on elements, inline styles only to adjust layout or color. Classes: ${Object.keys(visualStyleClasses).join(", ")}. Every element is a flex box; there are no tables, grids, or external fonts. Images must be embedded data:image URIs; remote image URLs are refused. Only put facts you already have in the card.`,
   inputSchema: z.object({
     images: z
       .array(
