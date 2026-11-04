@@ -14,6 +14,7 @@ const capture = vi.hoisted(() => ({
   // SAFETY: The mocked channel factory replaces this value during module loading.
   config: undefined as LinqChannelConfig | undefined,
   findOne: vi.fn<() => Promise<AuthUserRow | null>>(),
+  requestSignInLink: vi.fn<(phoneNumber: string) => Promise<void>>(),
 }));
 
 vi.mock("@shared/environment", async (importOriginal) => {
@@ -44,6 +45,7 @@ vi.mock("@db/services/auth", () => ({
   getAuth: async () => ({
     $context: Promise.resolve({ adapter: { findOne: capture.findOne } }),
   }),
+  requestSignInLink: capture.requestSignInLink,
 }));
 
 const verifier = capture.config?.credentials?.webhookVerifier;
@@ -84,6 +86,23 @@ describe("Linq inbound authentication", () => {
       model: "user",
       where: [{ field: "phoneNumber", value: "+15550100011" }],
     });
+  });
+
+  it("answers Sign me in with a sign-in link instead of starting a turn", async () => {
+    await expect(
+      onMessage(threadContext(), linqMessage("+15550100011", "Sign me in!"))
+    ).resolves.toBeNull();
+    expect(capture.requestSignInLink).toHaveBeenCalledExactlyOnceWith(
+      "+15550100011"
+    );
+    expect(capture.findOne).not.toHaveBeenCalled();
+  });
+
+  it("sends no sign-in link to a number that is neither an owner nor invited", async () => {
+    await expect(
+      onMessage(threadContext(), linqMessage("+15550100022", "Sign me in"))
+    ).resolves.toBeNull();
+    expect(capture.requestSignInLink).not.toHaveBeenCalled();
   });
 
   it("drops messages from a verified user who is neither an owner nor invited", async () => {
@@ -148,7 +167,7 @@ function threadContext(): InboundContext {
   return identity as InboundContext;
 }
 
-function linqMessage(handle: string) {
+function linqMessage(handle: string, text = "list my vault items") {
   return new Message({
     attachments: [],
     author: {
@@ -165,7 +184,7 @@ function linqMessage(handle: string) {
       edited: false,
     },
     raw: {},
-    text: "list my vault items",
+    text,
     threadId: "linq:dm:chat-1",
   });
 }

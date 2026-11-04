@@ -24,6 +24,32 @@ describe("Linq phone authentication", () => {
     vi.unstubAllGlobals();
   });
 
+  it("texts the code with a one-tap link that keeps the code out of the request", async () => {
+    vi.stubEnv("LINQ_CONNECTOR", "linq/open-instinct");
+    mocks.getToken.mockResolvedValue("test-token");
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(null, { status: 202 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { sendPhoneCode } = await import("@db/services/auth");
+    await sendPhoneCode({ code: "123456", to: "+12025550123" });
+
+    const [, init] = fetchMock.mock.calls[0] ?? [];
+    const { message } = z
+      .object({
+        message: z.object({
+          parts: z.array(z.object({ value: z.string() })),
+        }),
+      })
+      .parse(JSON.parse(z.string().parse(init?.body)));
+    const text = message.parts[0]?.value ?? "";
+    expect(text).toContain("sign-in code: 123456");
+    expect(text).toContain(
+      "https://example.com/sign-in-link#code=123456&phone=%2B12025550123"
+    );
+  });
+
   it("preserves provider diagnostics and returns actionable client copy", async () => {
     vi.stubEnv(
       "BETTER_AUTH_SECRET",

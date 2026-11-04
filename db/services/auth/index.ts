@@ -7,7 +7,11 @@ import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { phoneNumber } from "better-auth/plugins/phone-number";
 import { account, db, session, user, verification } from "@db";
-import { betterAuthBaseURL } from "@shared/environment/origin";
+import {
+  applicationOrigin,
+  betterAuthBaseURL,
+} from "@shared/environment/origin";
+import { signInLinkPath } from "@shared/identity/sign-in-link";
 import { env, localPhoneAuthBypassEnabled } from "@shared/environment";
 import { claimedInviteLine, isAllowedPhoneNumber } from "@db/services/invites";
 import { getInstallationSecrets } from "@db/services/installation-secrets";
@@ -151,6 +155,18 @@ async function initializeAuth() {
   });
 }
 
+// Answers a "Sign me in" text: sends that phone a fresh code and one-tap
+// link through the normal sign-in rules, so only owners and invited friends
+// receive one. Failures are logged; the text gets no reply.
+export async function requestSignInLink(requester: string) {
+  try {
+    const auth = await getAuth();
+    await auth.api.sendPhoneNumberOTP({ body: { phoneNumber: requester } });
+  } catch (error) {
+    console.warn("[auth] sign-in link request failed", { cause: error });
+  }
+}
+
 export async function sendPhoneCode({
   code,
   from,
@@ -175,7 +191,10 @@ export async function sendPhoneCode({
       idempotencyKey: `auth-otp-${createHash("sha256")
         .update(`${to}\u0000${code}`)
         .digest("hex")}`,
-      message: `Local Vault Assistant sign-in code: ${code}. Expires in 5 minutes.`,
+      message: [
+        `Local Vault Assistant sign-in code: ${code}. Expires in 5 minutes.`,
+        `Or tap to sign in: ${new URL(signInLinkPath(to, code), applicationOrigin()).toString()}`,
+      ].join("\n\n"),
       to,
     });
   } catch (error) {

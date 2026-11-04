@@ -87,7 +87,7 @@ export function linqOtpFailure(error: LinqDeliveryError) {
       return {
         code: "LINQ_RECIPIENT_NOT_VERIFIED",
         message:
-          "Complete the first-time sign-in steps above: text the deployment's Linq number once from this phone, then request another code.",
+          "This phone hasn't texted the assistant yet. Text \u201cSign me in\u201d to the number above from this phone; you'll get a sign-in link back.",
       };
     case 2024:
       return {

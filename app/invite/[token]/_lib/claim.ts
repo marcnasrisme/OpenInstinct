@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { claimInvite } from "@db/services/invites";
+import { claimInvite, claimedInviteLine } from "@db/services/invites";
 import { normalizeAuthPhoneNumber } from "@shared/identity/phone-number";
 
 // Binds the invite to the visitor's phone number, then sends them to sign in
@@ -16,5 +16,11 @@ export async function claimInviteAction(token: string, formData: FormData) {
 
   const claimed = await claimInvite(token, phoneNumber);
   if (claimed === "unavailable") redirect(`/invite/${token}`);
-  redirect("/sign-in?callbackUrl=/");
+  // The sign-in page then shows the QR code for the friend's own number.
+  const line = await claimedInviteLine(phoneNumber);
+  redirect(
+    line
+      ? `/sign-in?${new URLSearchParams({ callbackUrl: "/", line }).toString()}`
+      : "/sign-in?callbackUrl=/"
+  );
 }
