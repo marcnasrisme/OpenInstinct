@@ -1,0 +1,3 @@
+ALTER TABLE "browser_image_artifacts" DROP CONSTRAINT "browser_image_artifacts_source_kind_check";--> statement-breakpoint
+ALTER TABLE "browser_image_artifacts" ALTER COLUMN "browser_session_id" DROP NOT NULL;--> statement-breakpoint
+ALTER TABLE "browser_image_artifacts" ADD CONSTRAINT "browser_image_artifacts_source_kind_check" CHECK ("browser_image_artifacts"."source_kind" IN ('element', 'full_page', 'image_resource', 'rendered', 'viewport'));

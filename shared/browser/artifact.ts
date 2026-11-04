@@ -9,10 +9,13 @@ export const browserImageMediaTypeSchema = z.enum([
   "image/webp",
 ]);
 
+// `rendered` images are drawn by the assistant from HTML, not captured from
+// a browser, so they have no browser session.
 export const browserImageSourceKinds = [
   "element",
   "full_page",
   "image_resource",
+  "rendered",
   "viewport",
 ] as const;
 

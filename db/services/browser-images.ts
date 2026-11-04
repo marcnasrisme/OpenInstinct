@@ -30,7 +30,7 @@ export type ReservedBrowserImageArtifact =
 export async function reserveBrowserImageArtifact(
   scope: AccessScope,
   input: {
-    readonly browserSessionId: string;
+    readonly browserSessionId?: string;
     readonly idempotencyKey: string;
     readonly label: string;
     readonly rootSessionId: string;
@@ -49,7 +49,7 @@ export async function reserveBrowserImageArtifact(
   const rows = await db
     .insert(browserImageArtifacts)
     .values({
-      browserSessionId: input.browserSessionId,
+      browserSessionId: input.browserSessionId ?? null,
       createdAt: new Date(),
       createdByUserId: scope.userId,
       id,
@@ -153,14 +153,14 @@ async function readReadyBrowserImageArtifactRow(
 function reservedResult(
   row: ArtifactRow,
   input: {
-    readonly browserSessionId: string;
+    readonly browserSessionId?: string;
     readonly label: string;
     readonly rootSessionId: string;
     readonly workerSessionId: string;
   }
 ): ReservedBrowserImageArtifact {
   if (
-    row.browserSessionId !== input.browserSessionId ||
+    row.browserSessionId !== (input.browserSessionId ?? null) ||
     row.rootSessionId !== input.rootSessionId ||
     row.workerSessionId !== input.workerSessionId
   ) {

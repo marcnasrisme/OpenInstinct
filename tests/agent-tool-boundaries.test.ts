@@ -32,6 +32,7 @@ describe("root and worker capability boundaries", () => {
       "run_browser.ts",
       "schedules.ts",
       "vault.ts",
+      "visuals.ts",
       "web_fetch.ts",
       "web_search.ts",
     ]);
@@ -212,6 +213,7 @@ const toolSafety = {
     "exempt: delegates to the worker, whose card fills are gated",
   [`${rootTools}/schedules.ts`]: "exempt: affects only the user's own jobs",
   [`${rootTools}/vault.ts`]: "exempt: sends the user a setup link",
+  [`${rootTools}/visuals.ts`]: "exempt: draws images for the current user",
   [`${rootTools}/web_fetch.ts`]: "exempt: read-only",
   [`${rootTools}/web_search.ts`]: "exempt: read-only",
   [`${workerTools}/bash.ts`]: "exempt: disabled",
