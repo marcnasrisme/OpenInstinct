@@ -26,3 +26,8 @@ allowBuilds:
 patchedDependencies:
   "@linqapp/chat-sdk-adapter@0.5.1": patches/@linqapp__chat-sdk-adapter@0.5.1.patch
   eve@1.0.0-rc.1: patches/eve@1.0.0-rc.1.patch
+overrides:
+  # @vercel/og asks for sharp 0.34 while the browser loop and Next use 0.35.
+  # Two copies make the agent bundle pair sharp 0.35 with the wrong libvips,
+  # and the server crashes on start, so everything shares one version.
+  sharp: 0.35.4
