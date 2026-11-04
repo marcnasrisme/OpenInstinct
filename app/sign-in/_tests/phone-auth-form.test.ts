@@ -39,20 +39,20 @@ describe("phone OTP errors", () => {
     ).toBe("Unable to send a code. Please try again.");
   });
 
-  it("explains and links the required first-time Messages flow", () => {
+  it("offers sign-in by text with a QR code and a prefilled message", () => {
     const html = renderForm(
       createElement(PhoneOtpAuthForm, {
         callbackUrl: "/",
         linqPhoneNumber: "+12025550123",
+        qrCode: "data:image/svg+xml;charset=utf-8,qr",
       })
     );
 
-    expect(html).toContain("First time signing in?");
-    expect(html).toContain("Linq requires one message");
-    expect(html).toContain("Send any message");
-    expect(html).toContain("Return here and select Send code");
-    expect(html).toContain('href="sms:+12025550123"');
-    expect(html).toContain("Text Linq in Messages");
+    expect(html).toContain("Sign in by text");
+    expect(html).toContain("This works the first time too.");
+    expect(html).toContain('href="sms:+12025550123?&amp;body=Sign%20me%20in"');
+    expect(html).toContain('src="data:image/svg+xml;charset=utf-8,qr"');
+    expect(html).toContain("Or enter your number below to get a code.");
   });
 
   it("keeps the required flow visible when the number cannot be resolved", () => {

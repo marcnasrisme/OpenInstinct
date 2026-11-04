@@ -12,7 +12,8 @@ import {
   type MessageTransport,
 } from "@agent/lib/delivery/tool-result";
 import { resolveLinqReplyTarget } from "@agent/lib/reply-targets";
-import { getAuth } from "@db/services/auth";
+import { getAuth, requestSignInLink } from "@db/services/auth";
+import { isSignInRequest } from "@shared/identity/sign-in-link";
 import { accessScopeForUser } from "@shared/identity/access-scope";
 import { normalizeAuthPhoneNumber } from "@shared/identity/phone-number";
 import { env } from "@shared/environment";
@@ -211,8 +212,16 @@ export default linqChannel({
     const phoneNumber = authorUserName.success
       ? normalizeAuthPhoneNumber(authorUserName.data)
       : undefined;
+    const allowed =
+      phoneNumber !== undefined && (await isAllowedPhoneNumber(phoneNumber));
+    // "Sign me in" asks for a one-tap web sign-in link; it is not a request
+    // for the agent, and it also works before the account exists.
+    if (phoneNumber && allowed && isSignInRequest(message.text)) {
+      await requestSignInLink(phoneNumber);
+      return null;
+    }
     const verifiedUserId =
-      phoneNumber && (await isAllowedPhoneNumber(phoneNumber))
+      phoneNumber && allowed
         ? await findVerifiedAuthUserIdByPhoneNumber(phoneNumber)
         : undefined;
     if (!verifiedUserId || !phoneNumber) {

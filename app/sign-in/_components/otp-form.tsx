@@ -7,6 +7,7 @@ import type { SubmitEvent } from "react";
 import { authClient } from "@web/auth/client";
 import { formValue, verifyPhoneNumber } from "@app/sign-in/_lib/phone-auth";
 import { normalizeAuthPhoneNumber } from "@shared/identity/phone-number";
+import { signInRequestUri } from "@shared/identity/sign-in-link";
 import { Alert, AlertDescription, AlertTitle } from "@web/components/ui/alert";
 import { Button } from "@web/components/ui/button";
 import {
@@ -21,9 +22,11 @@ import { PhoneNumberField } from "./phone-field";
 export function PhoneOtpAuthForm({
   callbackUrl,
   linqPhoneNumber,
+  qrCode,
 }: {
   readonly callbackUrl: string;
   readonly linqPhoneNumber?: string;
+  readonly qrCode?: string;
 }) {
   const sendOtp = useMutation({
     mutationFn: async (phoneNumberValue: string) => {
@@ -57,7 +60,7 @@ export function PhoneOtpAuthForm({
 
   return (
     <>
-      <FirstTimeLinqSetup phoneNumber={linqPhoneNumber} />
+      <TextToSignIn phoneNumber={linqPhoneNumber} qrCode={qrCode} />
       <form
         className="mt-4"
         onSubmit={(event) => {
@@ -154,45 +157,67 @@ function VerificationCodeForm({
   );
 }
 
-function FirstTimeLinqSetup({
+// Texting "Sign me in" both activates the Linq line for a new phone and
+// replies with a one-tap sign-in link, so nobody types a number or a code.
+function TextToSignIn({
   phoneNumber,
+  qrCode,
 }: {
   readonly phoneNumber?: string;
+  readonly qrCode?: string;
 }) {
+  if (!phoneNumber) {
+    return (
+      <Alert className="mt-6" variant="information">
+        <MessageSquareIcon />
+        <AlertTitle>First time signing in?</AlertTitle>
+        <AlertDescription>
+          <p>
+            Find the Linq number in Vercel Connect or the Linq dashboard, text
+            it once from your phone, then return here.
+          </p>
+        </AlertDescription>
+      </Alert>
+    );
+  }
   return (
     <Alert className="mt-6" variant="information">
       <MessageSquareIcon />
-      <AlertTitle>First time signing in?</AlertTitle>
+      <AlertTitle>Sign in by text</AlertTitle>
       <AlertDescription>
         <p>
-          Linq requires one message from your phone before it can send a sign-in
-          code.
+          Text &ldquo;Sign me in&rdquo; to {phoneNumber}. You&rsquo;ll get a
+          link back; tap it and you&rsquo;re in. This works the first time too.
         </p>
-        <ol className="mt-2 list-decimal space-y-1 pl-4">
-          <li>Open Messages to the Linq number.</li>
-          <li>Send any message from the phone number you will enter below.</li>
-          <li>Return here and select Send code.</li>
-        </ol>
-        {phoneNumber ? (
-          <Button
-            className="mt-3 w-full"
-            nativeButton={false}
-            render={
-              <a
-                aria-label="Text Linq in Messages"
-                href={`sms:${phoneNumber}`}
-              />
-            }
-            variant="outline"
-          >
-            Text Linq in Messages
-          </Button>
-        ) : (
-          <p className="mt-2">
-            Find the Linq number in Vercel Connect or the Linq dashboard, text
-            it once, then return here.
-          </p>
-        )}
+        {qrCode ? (
+          <div className="mt-3 hidden flex-col items-center gap-1 sm:flex">
+            {/* oxlint-disable-next-line nextjs/no-img-element -- a generated data URL needs no image optimization */}
+            <img
+              alt={`QR code that opens Messages to ${phoneNumber}`}
+              className="size-40 rounded-md bg-white p-2"
+              height={160}
+              src={qrCode}
+              width={160}
+            />
+            <p className="type-caption">Scan with your phone&rsquo;s camera.</p>
+          </div>
+        ) : null}
+        <Button
+          className="mt-3 w-full"
+          nativeButton={false}
+          render={
+            <a
+              aria-label="Text Sign me in in Messages"
+              href={signInRequestUri(phoneNumber)}
+            />
+          }
+          variant="outline"
+        >
+          Text &ldquo;Sign me in&rdquo;
+        </Button>
+        <p className="mt-3 type-caption">
+          Or enter your number below to get a code.
+        </p>
       </AlertDescription>
     </Alert>
   );

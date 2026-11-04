@@ -203,7 +203,7 @@ describe("Linq delivery", () => {
 
   it.each([
     [2006, "LINQ_SENDING_LINE_NOT_AUTHORIZED", "API token"],
-    [2008, "LINQ_RECIPIENT_NOT_VERIFIED", "first-time sign-in steps"],
+    [2008, "LINQ_RECIPIENT_NOT_VERIFIED", "Sign me in"],
     [2024, "LINQ_RECIPIENT_OPTED_OUT", "opted out"],
     [2027, "LINQ_REPUTATION_BLOCKED", "messaging reputation"],
   ])("maps Linq code %i to actionable OTP copy", (code, expectedCode, copy) => {
