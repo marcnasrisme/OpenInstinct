@@ -12,13 +12,13 @@ import {
  */
 export function viewOf(
   lines: readonly (readonly Fact[])[],
-  at = "2026-01-01T00:00:00.000Z"
+  at: (line: number) => string = () => "2026-01-01T00:00:00.000Z"
 ): SessionView {
   const events: ReceivedEvent[] = lines.flatMap((facts, line) =>
     facts.map((fact, index) => ({
       ...fact,
       meta: {
-        at,
+        at: at(line),
         endOfLine: index === facts.length - 1,
         position: { index, line },
       },

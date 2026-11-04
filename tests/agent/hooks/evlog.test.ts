@@ -71,6 +71,127 @@ describe("evlog hook", () => {
     });
   });
 
+  it("times each model step and tool from the turn's start", async () => {
+    const runId = "run-1";
+    const turnId = "turn-1";
+    const settled: TurnSettled = {
+      data: { outcome: "completed", reply: [], turnId },
+      scope: { turnId },
+      type: "turn.settled",
+    };
+    const seconds = [0, 1.5, 4, 4, 34, 36];
+    const view = viewOf(
+      [
+        [
+          {
+            data: {
+              cause: { deliveryId: "delivery-1" },
+              follows: null,
+              turnId,
+            },
+            scope: { turnId },
+            type: "turn.started",
+          },
+        ],
+        [
+          {
+            data: { owner: { turnId }, runId },
+            scope: { runId, turnId },
+            type: "model.requested",
+          },
+          {
+            data: { attempt: 1, modelId: "openai/gpt-test", runId },
+            scope: { runId, turnId },
+            type: "model.started",
+          },
+        ],
+        [
+          {
+            data: {
+              callId: "call-browser",
+              capability: { kind: "tool", name: "run_browser" },
+              input: {},
+              owner: { runId },
+            },
+            scope: { runId, turnId },
+            type: "call.requested",
+          },
+        ],
+        [
+          {
+            data: { outcome: "completed", runId },
+            scope: { runId, turnId },
+            type: "model.settled",
+          },
+          {
+            data: {
+              kind: "model",
+              owner: { runId },
+              usage: {
+                cacheReadTokens: 0,
+                cacheWriteTokens: 0,
+                costUsd: 0.02,
+                inputTokens: 1_000,
+                outputTokens: 100,
+              },
+            },
+            type: "usage.recorded",
+          },
+        ],
+        [
+          {
+            data: {
+              callId: "call-browser",
+              outcome: "completed",
+              output: {},
+            },
+            scope: { runId, turnId },
+            type: "call.settled",
+          },
+          {
+            data: {
+              kind: "model",
+              owner: { callId: "call-browser" },
+              usage: {
+                cacheReadTokens: 0,
+                cacheWriteTokens: 0,
+                costUsd: 0.1,
+                inputTokens: 9_000,
+                outputTokens: 900,
+              },
+            },
+            type: "usage.recorded",
+          },
+        ],
+        [settled],
+      ],
+      (line) =>
+        new Date(
+          Date.UTC(2026, 0, 1) + (seconds[line] ?? 0) * 1000
+        ).toISOString()
+    );
+
+    await evlogHook.events["turn.settled"]?.(
+      settled,
+      hookContextFor({
+        agentName: "root",
+        channel: { kind: "channel:linq", metadata: {} },
+        now: new Date(Date.UTC(2026, 0, 1, 0, 0, 36)),
+        sessionId: "session-1",
+        view,
+      })
+    );
+
+    expect(capturedEvents).toHaveLength(1);
+    expect(capturedEvents[0]).toMatchObject({
+      models: [{ at: 1.5, model: "openai/gpt-test", seconds: 2.5 }],
+      tools: [
+        { at: 4, name: "run_browser", outcome: "completed", seconds: 30 },
+      ],
+      turn: { costUsd: 0.12, id: turnId, seconds: 36 },
+    });
+  });
+
   it("emits one session event when the session ends", async () => {
     const turnFacts = turnLines("turn-1", null, {
       received: "hello",
