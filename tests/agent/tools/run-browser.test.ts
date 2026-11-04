@@ -150,6 +150,33 @@ describe("structured browser workflow", () => {
     });
   });
 
+  it("asks the worker to resend an unstructured answer instead of failing", async () => {
+    const { error, reply, send } = await serveCalls(
+      [serveCall("Compare flights")],
+      [
+        {
+          data: undefined,
+          error: {
+            message:
+              "The agent could not produce a result matching the requested schema.",
+          },
+          reply: "",
+          sessionEnded: false,
+          status: "failed",
+        },
+        completed(completion),
+      ]
+    );
+
+    expect(error).toBeInstanceOf(ReceiveDrained);
+    expect(send).toHaveBeenCalledTimes(2);
+    expect(send.mock.calls[1]).toMatchObject([
+      expect.stringContaining("do not repeat the browser work"),
+      { outputSchema },
+    ]);
+    expect(reply).toHaveBeenCalledExactlyOnceWith(completion);
+  });
+
   it("keeps the worker available after a cancelled stretch", async () => {
     const cancelled = new AbortController();
     cancelled.abort();

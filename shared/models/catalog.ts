@@ -66,6 +66,36 @@ export const modelCatalog = [
     },
   },
   {
+    id: "anthropic/claude-sonnet-5.5",
+    label: "Claude Sonnet 5.5",
+    provider: "Anthropic",
+    retention: {
+      note: "Through Vercel AI Gateway. Anthropic's retention terms apply and have not been reviewed. This model sees whole web pages.",
+      reviewed: false,
+    },
+    roles: ["browser"],
+    route: {
+      kind: "gateway",
+      model: "anthropic/claude-sonnet-5.5",
+      zeroDataRetention: false,
+    },
+  },
+  {
+    id: "anthropic/claude-haiku-5.5",
+    label: "Claude Haiku 5.5",
+    provider: "Anthropic",
+    retention: {
+      note: "Through Vercel AI Gateway. Anthropic's retention terms apply and have not been reviewed. This model sees whole web pages.",
+      reviewed: false,
+    },
+    roles: ["browser"],
+    route: {
+      kind: "gateway",
+      model: "anthropic/claude-haiku-5.5",
+      zeroDataRetention: false,
+    },
+  },
+  {
     id: "openai-compatible",
     label: "Your OpenAI-compatible server",
     provider: "Self-hosted",
