@@ -4,6 +4,15 @@ import { env } from "@shared/environment";
 import type { AccessScope } from "@shared/identity/access-scope";
 import { catalogModel, type ModelRole } from "@shared/models/catalog";
 
+// The catalog models accept about a million tokens, and eve compacts at a
+// share of the window, so without a budget a long task replays hundreds of
+// thousands of tokens on every step. These budgets make eve compact sooner.
+// The browser's is smaller because it rereads pages on most steps.
+const workingContextTokens = {
+  assistant: 200_000,
+  browser: 120_000,
+} as const satisfies Record<ModelRole, number>;
+
 // Turns a catalog model ID into eve's model fields. A model outside the
 // catalog, or a self-hosted server that is not configured, fails the turn
 // instead of quietly switching to another model.
@@ -15,15 +24,17 @@ export function catalogModelSelection(modelId: string, role: ModelRole) {
     );
   }
 
+  const budget = workingContextTokens[role];
   if (model.route.kind === "gateway") {
     return model.route.zeroDataRetention
       ? {
           model: model.route.model,
+          modelContextWindowTokens: budget,
           modelOptions: {
             providerOptions: { gateway: { zeroDataRetention: true } },
           },
         }
-      : { model: model.route.model };
+      : { model: model.route.model, modelContextWindowTokens: budget };
   }
 
   const baseURL = env.OPENAI_COMPATIBLE_BASE_URL;
@@ -41,7 +52,10 @@ export function catalogModelSelection(modelId: string, role: ModelRole) {
   });
   return {
     model: provider(providerModel),
-    modelContextWindowTokens: env.OPENAI_COMPATIBLE_CONTEXT_TOKENS,
+    modelContextWindowTokens: Math.min(
+      env.OPENAI_COMPATIBLE_CONTEXT_TOKENS,
+      budget
+    ),
   };
 }
 

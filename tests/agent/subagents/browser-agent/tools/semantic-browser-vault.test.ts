@@ -98,6 +98,22 @@ describe("semantic browser tools after a vault fill", () => {
   });
 });
 
+describe("semantic browser model output", () => {
+  it("caps a large page result so later steps do not reread all of it", async () => {
+    const page = "x".repeat(50_000);
+    const tool = dynamicTool(await resolvedTools(), "playwright_execute");
+
+    const output = tool.toModelOutput?.({
+      content: [{ text: page, type: "text" }],
+      details: { statusText: "ok" },
+    });
+
+    const text = JSON.stringify(output);
+    expect(text.length).toBeLessThan(17_000);
+    expect(text).toContain("[truncated 34000 characters]");
+  });
+});
+
 async function resolvedTools() {
   return evaluateDynamic(semanticBrowser, dynamicContextFor());
 }

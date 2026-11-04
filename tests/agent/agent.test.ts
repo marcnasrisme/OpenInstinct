@@ -50,7 +50,10 @@ describe("root agent model resolution", () => {
       { userId: "user-1", workspaceId: "workspace-1" },
       "assistant"
     );
-    expect(model).toEqual({ model: "openai/gpt-6.1-sol-fast" });
+    expect(model).toEqual({
+      model: "openai/gpt-6.1-sol-fast",
+      modelContextWindowTokens: 200_000,
+    });
   });
 
   it("rejects a scheduled worker after its lease is replaced", async () => {

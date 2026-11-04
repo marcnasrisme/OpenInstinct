@@ -31,6 +31,9 @@ const specsByName = new Map(allSpecs.map((spec) => [spec.name, spec]));
 const relaxedBrowserActTimeoutMs = 8_000;
 const relaxedBrowserActSnapshotCharacters = 4_000;
 const relaxedBrowserActOutputCharacters = 6_000;
+// The model rereads every result on each later step, so one whole-page dump
+// from a script or snapshot would be paid for many times over.
+const browserTextOutputCharacters = 16_000;
 
 export default defineDynamic(() => {
   return Object.fromEntries(
@@ -128,12 +131,12 @@ function toModelOutput(output: LoopToolExecutionResult) {
   }
   const parts = output.content.map((part) =>
     part.type === "text"
-      ? toolOutputPart.text(part.text)
+      ? toolOutputPart.text(truncate(part.text, browserTextOutputCharacters))
       : toolOutputPart.file(part.data, { mediaType: part.mimeType })
   );
   return parts.length > 0
     ? toolOutput.content(parts)
-    : toolOutput.text(modelText(output));
+    : toolOutput.text(truncate(modelText(output), browserTextOutputCharacters));
 }
 
 function splitSessionInput(input: Record<string, unknown>) {
