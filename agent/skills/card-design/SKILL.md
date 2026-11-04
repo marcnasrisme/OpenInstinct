@@ -16,17 +16,17 @@ phone, then find the deciding details without reading.
 - Draw a comparison as one image: one `card` with a section per option, best
   first. Separate images pile up in Messages and shrink. Use one image per item
   only for a single detailed result, such as a booking confirmation.
-- Show two or three options, not more. Each option gets three to five lines.
+- Show the few options worth choosing between, not everything the site listed;
+  a long list on a small screen is a list nobody reads.
 
 ## Hierarchy
 
 - One hero per option: the fact the choice turns on, large and bold.
 - Bold what decides (`strong`, `title`), mute what only explains (`muted`).
-  Use at most three text sizes in one image.
+  Fewer sizes read calmer; every size change should mean something.
 - Put labels and caveats in `pill`s instead of sentences: "Nonstop",
   "Carry-on only", "Free cancellation".
-- Leave the footnote out unless it changes the decision. If it does, keep it to
-  one short line.
+- Leave the footnote out unless it changes the decision.
 - Never repeat what the text message says, and never add a fact you did not
   verify.
 
@@ -133,4 +133,4 @@ in a `spread`.
 
 - Can the user pick from the image alone, in two seconds?
 - Is every number in it verified, and is the best option first?
-- Is all text 28px or larger, and does each option fit in five lines?
+- Would it still read clearly at a third of its size?
