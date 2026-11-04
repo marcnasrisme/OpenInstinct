@@ -1,5 +1,8 @@
 import {
   calls,
+  type CapabilityKind,
+  type ContentCompleted,
+  type ErrorInfo,
   runs,
   turn,
   turns,
@@ -60,13 +63,25 @@ function turnCost(steps: readonly { readonly usage?: Usage }[]) {
   return Math.round(total * 10_000) / 10_000;
 }
 
-export function logTurnSettled(event: TurnSettled, ctx: HookContext) {
+function logTurn(
+  ctx: HookContext,
+  turnId: string,
+  outcome: string,
+  error?: ErrorInfo
+) {
   try {
-    const { outcome, turnId } = event.data;
     const startedAt = turn(ctx.view, turnId)?.startedAt;
     const models = runs(ctx.view, { turnId });
     const steps = calls(ctx.view, { turnId });
-    const tools = steps.filter((call) => call.kind === "tool");
+    const stepsOfKind = (kind: CapabilityKind) =>
+      steps
+        .filter((call) => call.kind === kind)
+        .map((call) =>
+          timed(call, startedAt, {
+            name: call.name,
+            outcome: call.outcome ?? call.state,
+          })
+        );
     const log = logger({
       agent: { name: ctx.agent.name },
       channel: { kind: channelKind(ctx) },
@@ -77,12 +92,8 @@ export function logTurnSettled(event: TurnSettled, ctx: HookContext) {
       // puts on this turn's model-call spans.
       requestId: `${ctx.session.id}:${turnId}`,
       session: { id: ctx.session.id, usage: usage(ctx.view).total },
-      tools: tools.map((call) =>
-        timed(call, startedAt, {
-          name: call.name,
-          outcome: call.outcome ?? call.state,
-        })
-      ),
+      skills: stepsOfKind("skill"),
+      tools: stepsOfKind("tool"),
       turn: {
         costUsd: turnCost([...models, ...steps]),
         id: turnId,
@@ -91,13 +102,25 @@ export function logTurnSettled(event: TurnSettled, ctx: HookContext) {
       },
     });
     if (outcome === "failed") {
-      log.error(event.data.error?.message ?? "The turn failed.");
+      log.error(error?.message ?? "The turn failed.");
     }
     log.emit();
-  } catch (error) {
+  } catch (caught) {
     // Telemetry must never fail the turn.
-    console.warn("[evlog] turn event failed", { cause: error });
+    console.warn("[evlog] turn event failed", { cause: caught });
   }
+}
+
+export function logTurnSettled(event: TurnSettled, ctx: HookContext) {
+  logTurn(ctx, event.data.turnId, event.data.outcome, event.data.error);
+}
+
+// A browser worker's assignment ends with its structured result, which is
+// also where its trace records completion, so its timings are logged there.
+export function logWorkerResult(event: ContentCompleted, ctx: HookContext) {
+  const turnId = event.scope?.turnId;
+  if (event.data.kind !== "result" || !turnId) return;
+  logTurn(ctx, turnId, "completed");
 }
 
 export function logSessionEnded(event: SessionEnded, ctx: HookContext) {

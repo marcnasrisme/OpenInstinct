@@ -1,4 +1,9 @@
-import type { Fact, SessionView, TurnSettled } from "eve/events";
+import type {
+  ContentCompleted,
+  Fact,
+  SessionView,
+  TurnSettled,
+} from "eve/events";
 import type * as Evlog from "evlog";
 import type { DrainContext, WideEvent } from "evlog";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
@@ -13,6 +18,7 @@ vi.mock("evlog", async (importOriginal) => ({
 }));
 
 import evlogHook from "@agent/hooks/evlog";
+import workerEvlogHook from "@agent/subagents/browser-agent/hooks/evlog";
 
 const capturedEvents: WideEvent[] = [];
 
@@ -189,6 +195,76 @@ describe("evlog hook", () => {
         { at: 4, name: "run_browser", outcome: "completed", seconds: 30 },
       ],
       turn: { costUsd: 0.12, id: turnId, seconds: 36 },
+    });
+  });
+
+  it("logs a browser worker's assignment from its result, with skills", async () => {
+    const runId = "run-1";
+    const turnId = "turn-1";
+    const result: ContentCompleted = {
+      data: {
+        kind: "result",
+        partId: "part-result",
+        phase: "reply",
+        runId,
+        value: { images: [], message: "Found it.", status: "success" },
+      },
+      scope: { runId, turnId },
+      type: "content.completed",
+    };
+    const view = viewOf([
+      [
+        {
+          data: { cause: { deliveryId: "delivery-1" }, follows: null, turnId },
+          scope: { turnId },
+          type: "turn.started",
+        },
+        {
+          data: { owner: { turnId }, runId },
+          scope: { runId, turnId },
+          type: "model.requested",
+        },
+        {
+          data: {
+            callId: "call-skill",
+            capability: { kind: "skill", name: "card-design" },
+            input: {},
+            owner: { runId },
+          },
+          scope: { runId, turnId },
+          type: "call.requested",
+        },
+        {
+          data: { callId: "call-skill", outcome: "completed", output: {} },
+          scope: { runId, turnId },
+          type: "call.settled",
+        },
+      ],
+      [result],
+    ]);
+    const context = hookContextFor({
+      agentName: "browser-agent",
+      sessionId: "worker-1",
+      view,
+    });
+
+    await workerEvlogHook.events["content.completed"]?.(result, context);
+    await workerEvlogHook.events["turn.settled"]?.(
+      {
+        data: { outcome: "completed", reply: [], turnId },
+        scope: { turnId },
+        type: "turn.settled",
+      },
+      context
+    );
+
+    expect(capturedEvents).toHaveLength(1);
+    expect(capturedEvents[0]).toMatchObject({
+      agent: { name: "browser-agent" },
+      requestId: "worker-1:turn-1",
+      skills: [{ name: "card-design", outcome: "completed" }],
+      tools: [],
+      turn: { id: turnId, outcome: "completed" },
     });
   });
 
