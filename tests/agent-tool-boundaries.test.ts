@@ -139,6 +139,9 @@ describe("root and worker capability boundaries", () => {
       "Never use the browser for general web search"
     );
     expect(workerInstructions).toContain(
+      "never the whole page or a region spanning several options"
+    );
+    expect(workerInstructions).toContain(
       "A named vertical search or booking product"
     );
     expect(workerInstructions).toContain("such as Google Flights");
