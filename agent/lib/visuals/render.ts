@@ -3,66 +3,99 @@ import { createElement, type ReactNode } from "react";
 import { html as parseHtml } from "satori-html";
 import { z } from "zod";
 import { maximumBrowserImageBytes } from "@shared/browser/artifact";
+import {
+  geistBold,
+  geistRegular,
+  geistSemiBold,
+} from "@agent/lib/visuals/fonts/geist";
 
-// Cards are drawn at twice an iPhone's width so text stays sharp in Messages.
+type Font = NonNullable<
+  NonNullable<ConstructorParameters<typeof ImageResponse>[1]>["fonts"]
+>[number];
+
+// Cards are drawn at twice an iPhone's width so text stays sharp in Messages,
+// which shows an image at about a third of this size: 40px reads as 14pt.
 const imageWidth = 780;
 const maximumImageHeight = 2400;
 
+// Geist in three weights, so bold and semibold text is drawn as such instead
+// of as the one regular face @vercel/og bundles.
+const cardFonts = (
+  [
+    { data: geistRegular, weight: 400 },
+    { data: geistSemiBold, weight: 600 },
+    { data: geistBold, weight: 700 },
+  ] as const
+).map(({ data, weight }) => ({
+  data: Buffer.from(data, "base64"),
+  name: "Geist",
+  style: "normal" as const,
+  weight,
+})) satisfies Font[];
+
 // The house style. The model writes HTML with these classes; inline styles
-// only adjust layout or color. Sizes are doubled for the 2x canvas.
+// adjust layout or color. Sizes are for the 2x canvas.
 export const visualStyleClasses = {
   accent: { color: "#2563eb" },
   badge: {
     alignItems: "center",
     background: "#111827",
-    borderRadius: 12,
+    borderRadius: 16,
     color: "#ffffff",
-    fontSize: 26,
+    fontSize: 32,
     fontWeight: 700,
-    height: 48,
+    height: 60,
     justifyContent: "center",
-    width: 48,
+    width: 60,
   },
-  big: { fontSize: 44, fontWeight: 700 },
+  big: { fontSize: 60, fontWeight: 700, letterSpacing: -1 },
   card: {
     background: "#ffffff",
-    borderRadius: 36,
+    borderRadius: 44,
     color: "#111827",
     flexDirection: "column",
-    fontSize: 30,
-    gap: 20,
-    padding: 36,
+    fontSize: 40,
+    gap: 24,
+    padding: 48,
     width: "100%",
   },
   divider: { background: "#e5e7eb", height: 2, width: "100%" },
-  good: { color: "#16a34a" },
+  good: { color: "#15803d" },
+  label: {
+    color: "#6b7280",
+    fontSize: 28,
+    fontWeight: 600,
+    letterSpacing: 2,
+    textTransform: "uppercase",
+  },
   line: {
-    borderTop: "2px dashed #d1d5db",
+    borderTop: "3px dashed #d1d5db",
     flexGrow: 1,
     height: 0,
-    marginLeft: 12,
-    marginRight: 12,
+    marginLeft: 16,
+    marginRight: 16,
   },
-  muted: { color: "#6b7280", fontSize: 24 },
+  muted: { color: "#6b7280", fontSize: 34 },
   pill: {
     background: "#f3f4f6",
     borderRadius: 999,
-    fontSize: 22,
-    paddingBottom: 6,
-    paddingLeft: 16,
-    paddingRight: 16,
-    paddingTop: 6,
+    fontSize: 30,
+    paddingBottom: 8,
+    paddingLeft: 22,
+    paddingRight: 22,
+    paddingTop: 8,
   },
-  price: { color: "#16a34a", fontSize: 36, fontWeight: 700 },
-  row: { alignItems: "center", flexDirection: "row", gap: 16 },
-  small: { fontSize: 22 },
+  price: { color: "#15803d", fontSize: 52, fontWeight: 700 },
+  row: { alignItems: "center", flexDirection: "row", gap: 20 },
+  small: { fontSize: 30 },
   spread: {
     alignItems: "center",
     flexDirection: "row",
     justifyContent: "space-between",
   },
-  stack: { flexDirection: "column", gap: 8 },
-  title: { fontSize: 34, fontWeight: 700 },
+  stack: { flexDirection: "column", gap: 10 },
+  strong: { fontWeight: 600 },
+  title: { fontSize: 48, fontWeight: 700, letterSpacing: -0.5 },
   warn: { color: "#b45309" },
 } as const satisfies Record<string, Record<string, number | string>>;
 
@@ -107,14 +140,14 @@ export async function renderVisual(markup: string) {
         style: {
           display: "flex",
           flexDirection: "column",
-          fontFamily: "sans-serif",
+          fontFamily: "Geist",
           width: imageWidth,
         },
       },
       content
     ),
     // Leaving height unset sizes the image to its content.
-    { height: undefined, width: imageWidth }
+    { fonts: cardFonts, height: undefined, width: imageWidth }
   );
   const bytes = new Uint8Array(await response.arrayBuffer());
   const height = pngHeight(bytes);
