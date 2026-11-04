@@ -19,7 +19,7 @@ describe("agent instructions", () => {
   it.each([
     ["scheduled-worker", "isolated background session"],
     ["scheduled-result", "evaluating the completed outcome"],
-    ["linq", "root coordinator"],
+    ["linq", "You are OpenInstinct, a personal agent"],
   ])("selects %s instructions for the current turn", async (role, phrase) => {
     const selected = await evaluateDynamic(
       roleInstructions,
@@ -97,7 +97,7 @@ describe("agent instructions", () => {
       messageStyle,
       dynamicContext("scheduled-result")
     );
-    expect(selected?.content).toContain("natural text message");
+    expect(selected?.content).toContain("Write like a sharp friend texting");
   });
 
   it("draws comparisons as cards with make_image and a one-line pick", async () => {
@@ -108,7 +108,7 @@ describe("agent instructions", () => {
     expect(selected?.content).toContain(
       "show them as cards instead of describing them: draw the top two or three options with `make_image` as one image"
     );
-    expect(selected?.content).toContain("names the choice by its number");
+    expect(selected?.content).toContain("naming the choice by its number");
     expect(selected?.content).toContain(
       "send the search link only if the user asks for it"
     );
@@ -123,6 +123,24 @@ describe("agent instructions", () => {
       "ask for the top two or three options as text in ranked order"
     );
     expect(coordination?.content).not.toContain("cropped result-card image");
+  });
+
+  it("leans toward action with a voice shown by examples", async () => {
+    const selected = await evaluateDynamic(
+      roleInstructions,
+      dynamicContext("linq-message")
+    );
+    expect(selected?.content).toContain("lean toward doing");
+    expect(selected?.content).toContain(
+      "make the most sensible assumption, act on it, and mention it"
+    );
+    expect(selected?.content).toContain("<examples>");
+    const style = await evaluateDynamic(
+      messageStyle,
+      dynamicContext("linq-message")
+    );
+    expect(style?.content).toContain("Let length follow the moment");
+    expect(style?.content).not.toContain("casual lowercase");
   });
 
   it("sends long links as preview cards instead of pasting them", async () => {
