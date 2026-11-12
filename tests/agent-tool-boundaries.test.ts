@@ -29,6 +29,7 @@ describe("root and worker capability boundaries", () => {
       "contacts.ts",
       "gmail.ts",
       "messaging.ts",
+      "models.ts",
       "run_browser.ts",
       "schedules.ts",
       "vault.ts",
@@ -215,6 +216,8 @@ const toolSafety = {
   [`${rootTools}/gmail.ts`]:
     "gated: gmail-send; gmail-update is reversible and stays in the mailbox",
   [`${rootTools}/messaging.ts`]: "exempt: replies to the current user only",
+  [`${rootTools}/models.ts`]:
+    "exempt: changes the user's own workspace model setting",
   [`${rootTools}/run_browser.ts`]:
     "exempt: delegates to the worker, whose card fills are gated",
   [`${rootTools}/schedules.ts`]: "exempt: affects only the user's own jobs",
