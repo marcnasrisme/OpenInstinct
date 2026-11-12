@@ -26,7 +26,7 @@ const commonFields = {
   label: z.string().trim().min(1).max(200),
   session_id: z.string().min(1),
 };
-const inputSchema = z.discriminatedUnion("source", [
+const captureSchema = z.discriminatedUnion("source", [
   z.object({
     ...commonFields,
     region: regionSchema.optional(),
@@ -47,16 +47,34 @@ const inputSchema = z.discriminatedUnion("source", [
     source: z.literal("image_resource"),
   }),
 ]);
+// Claude models refuse a tool whose input isn't one plain object, so the
+// model sees every source's fields together, and execute checks them against
+// the per-source shapes above.
+const inputSchema = z.object({
+  ...commonFields,
+  region: regionSchema
+    .optional()
+    .describe("Only with source viewport: the area to capture."),
+  selector: z
+    .string()
+    .trim()
+    .min(1)
+    .max(2_000)
+    .optional()
+    .describe("Required with source element or image_resource."),
+  source: z.enum(["viewport", "full_page", "element", "image_resource"]),
+});
 const outputSchema = z.object({ image: browserImageArtifactReferenceSchema });
 
-type CaptureInput = z.infer<typeof inputSchema>;
+type CaptureInput = z.infer<typeof captureSchema>;
 
 export default defineTool({
   description:
     "Capture one durable, user-visible image from an owned browser. Use only when the assignment requests an image or one image materially improves the final result; never persist routine debugging screenshots. Supports viewport or region screenshots, full-page screenshots, rendered element screenshots, and original image resources selected from the current page. Original resource capture falls back to the rendered element when needed. Does not expose private Blob URLs or page credentials.",
   inputSchema,
   outputSchema,
-  async execute(input, context) {
+  async execute(fields, context) {
+    const input = captureSchema.parse(fields);
     const scope = await requireWorkerScope(context);
     await requireOwnedBrowserSession(scope, input.session_id);
     const parent = context.session.parent;
